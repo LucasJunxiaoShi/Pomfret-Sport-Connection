@@ -4,7 +4,7 @@ const SPORTS = [
   {
     id: 'billiards',
     name: 'Billiards',
-    tagline: 'Precision shots in the Student Union.',
+    tagline: 'Precision shots in the OSU.',
     locationHint: 'OSU Pool Tables',
   },
   {
