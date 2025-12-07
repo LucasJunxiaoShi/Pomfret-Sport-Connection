@@ -227,7 +227,8 @@ function SportPage({ sportId, eventsBySport, onBack, onUpdateEvents }) {
                 <div className="event-title">Plan your next run</div>
                 <div className="event-subtitle">
                   Choose a time that works, set your player cap, and let others
-                  fill the open spots.
+                  fill the open spots. Your sessions are saved online so
+                  classmates can see them from any device.
                 </div>
               </div>
               <button
@@ -239,7 +240,7 @@ function SportPage({ sportId, eventsBySport, onBack, onUpdateEvents }) {
             </div>
             <div className="event-meta-row">
               <span className="meta-pill">Default location: {sport.locationHint}</span>
-              <span className="meta-pill">Saved in your browser (no account needed)</span>
+              <span className="meta-pill">Saved in Pomfret Sports Connect (no login needed)</span>
             </div>
           </div>
 
@@ -267,8 +268,8 @@ function SportPage({ sportId, eventsBySport, onBack, onUpdateEvents }) {
           <div className="sidebar-card">
             <div className="sidebar-title">Session snapshot</div>
             <p className="sidebar-text">
-              All events are stored locally in this browser. Refreshing the page
-              will keep your sessions as long as you stay on this device.
+              All events are stored in a shared Pomfret Sports Connect database.
+              Students can see the latest sessions from any browser.
             </p>
             <div className="sidebar-stat-row">
               <span className="stat-label">Total sessions</span>
@@ -387,8 +388,8 @@ function CreateEventModal({ sport, onClose, onCreate }) {
           <div>
             <div className="modal-title">New {sport.name} event</div>
             <div className="modal-subtitle">
-              Fill out the quick details below. Your session will be saved to
-              this browser.
+              Fill out the quick details below. Your session will be saved so
+              other Pomfret students can see and join.
             </div>
           </div>
           <button className="modal-close" onClick={onClose}>
