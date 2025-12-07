@@ -459,16 +459,31 @@ function App() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    let isMounted = true;
+    const db = firebase.firestore();
+    const docRef = db.collection('appState').doc('events');
 
-    loadEventsFromFirebase().then((data) => {
-      if (!isMounted) return;
-      setEventsBySport(data);
-      setIsLoading(false);
-    });
+    const unsubscribe = docRef.onSnapshot(
+      (snap) => {
+        if (!snap.exists) {
+          setEventsBySport({});
+        } else {
+          const data = snap.data();
+          setEventsBySport(
+            typeof data.eventsBySport === 'object' && data.eventsBySport !== null
+              ? data.eventsBySport
+              : {}
+          );
+        }
+        setIsLoading(false);
+      },
+      (error) => {
+        console.error('Realtime listener error', error);
+        setIsLoading(false);
+      }
+    );
 
     return () => {
-      isMounted = false;
+      unsubscribe();
     };
   }, []);
 
