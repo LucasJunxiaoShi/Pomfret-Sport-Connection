@@ -207,15 +207,17 @@ function SportPage({ sportId, eventsBySport, onBack, onUpdateEvents }) {
   };
 
   const handleJoin = (eventId) => {
+    const enteredName = window.prompt('Enter your name to join this session:');
+    if (!enteredName) {
+      return;
+    }
+
     const updatedSportEvents = events.map((e) => {
       if (e.id !== eventId) return e;
       if (e.participants.length >= e.maxPlayers) return e;
-      // For now we push a generic placeholder participant name
-      const nextNumber = e.participants.length + 1;
-      const name = `Player ${nextNumber}`;
       return {
         ...e,
-        participants: [...e.participants, name],
+        participants: [...e.participants, enteredName.trim()],
       };
     });
 
@@ -385,6 +387,11 @@ function EventCard({ event, onJoin, onDelete, canDelete }) {
           <div style={{ marginTop: '0.15rem' }}>
             {filled}/{event.maxPlayers} players joined
           </div>
+          {event.participants.length > 0 && (
+            <div style={{ marginTop: '0.15rem', fontSize: '0.75rem', color: '#d1d5db' }}>
+              {event.participants.join(', ')}
+            </div>
+          )}
         </div>
         <button className="join-button" onClick={onJoin} disabled={isFull}>
           {isFull ? 'Game full' : 'Join game'}
