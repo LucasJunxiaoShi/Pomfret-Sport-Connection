@@ -47,6 +47,40 @@ async function loadEventsFromFirebase() {
   }
 }
 
+function cleanExpiredEvents(eventsBySport) {
+  try {
+    const now = Date.now();
+    let changed = false;
+    const cleaned = {};
+
+    Object.keys(eventsBySport || {}).forEach((sportId) => {
+      const events = Array.isArray(eventsBySport[sportId])
+        ? eventsBySport[sportId]
+        : [];
+
+      const filtered = events.filter((event) => {
+        if (!event || !event.timeRaw) return true;
+        const ts = Date.parse(event.timeRaw);
+        if (Number.isNaN(ts)) return true;
+        return ts >= now;
+      });
+
+      if (filtered.length !== events.length) {
+        changed = true;
+      }
+
+      if (filtered.length > 0) {
+        cleaned[sportId] = filtered;
+      }
+    });
+
+    return { eventsBySport: changed ? cleaned : eventsBySport, changed };
+  } catch (e) {
+    console.error('Error cleaning expired events', e);
+    return { eventsBySport, changed: false };
+  }
+}
+
 async function saveEventsToFirebase(eventsBySport) {
   try {
     const db = firebase.firestore();
@@ -122,6 +156,11 @@ function Home({ onSelectSport }) {
             <span>Weeknight pickup · Corzine</span>
             <span>Make your own squad</span>
           </div>
+          <img
+            src="./PomfretSchool-removebg-preview.png"
+            alt="Pomfret School logo"
+            className="banner-logo-image"
+          />
         </div>
       </section>
 
@@ -510,11 +549,13 @@ function App() {
           setEventsBySport({});
         } else {
           const data = snap.data();
-          setEventsBySport(
+          const incoming =
             typeof data.eventsBySport === 'object' && data.eventsBySport !== null
               ? data.eventsBySport
-              : {}
-          );
+              : {};
+
+          const { eventsBySport: cleaned } = cleanExpiredEvents(incoming);
+          setEventsBySport(cleaned || {});
         }
         setIsLoading(false);
       },
@@ -533,6 +574,17 @@ function App() {
     if (isLoading) return;
     saveEventsToFirebase(eventsBySport);
   }, [eventsBySport, isLoading]);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setEventsBySport((prev) => {
+        const { eventsBySport: cleaned, changed } = cleanExpiredEvents(prev || {});
+        return changed ? cleaned : prev;
+      });
+    }, 60 * 1000); // every minute
+
+    return () => clearInterval(interval);
+  }, []);
 
   const handleUpdateEvents = (updated) => {
     setEventsBySport(updated);

@@ -294,6 +294,16 @@ body {
   opacity: 0.9;
 }
 
+.banner-logo-image {
+  position: absolute;
+  right: 16px;
+  top: 16px;
+  width: 90px;
+  height: auto;
+  object-fit: contain;
+  pointer-events: none;
+}
+
 .section-heading-row {
   display: flex;
   align-items: flex-end;
@@ -396,6 +406,7 @@ body {
 .sport-name {
   font-size: 1.05rem;
   font-weight: 600;
+  color: #ffffff;
 }
 
 .sport-meta {
