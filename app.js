@@ -5,25 +5,25 @@ const SPORTS = [
     id: 'billiards',
     name: 'Billiards',
     tagline: 'Precision shots in the OSU.',
-    locationHint: 'OSU Pool Tables',
+    locationHint: 'OSU, at the pool tables',
   },
   {
     id: 'soccer',
     name: 'Soccer',
     tagline: 'Small-sided matches under the lights.',
-    locationHint: 'Lower Fields, Turf',
+    locationHint: 'Fields or turf',
   },
   {
     id: 'basketball',
     name: 'Basketball',
-    tagline: 'Pickup runs on the field.',
-    locationHint: 'Athletic Center',
+    tagline: 'Pickup runs in Lewis Gymnasium.',
+    locationHint: 'Lewis Gymnasium',
   },
   {
     id: 'squash',
     name: 'Squash',
     tagline: 'Fast rallies on the courts.',
-    locationHint: 'Squash Courts',
+    locationHint: 'OSU squash courts',
   },
 ];
 
@@ -136,31 +136,17 @@ function Home({ onSelectSport }) {
             Organize pickup games, fill open spots, and keep Cardinal energy high
             after classes. All student-run, all Pomfret pride.
           </p>
-          <div className="banner-cta-row">
-            <button
-              className="primary-button"
-              onClick={() => onSelectSport('soccer')}
-            >
-              Explore sessions
-            </button>
-            <div className="banner-metric">
-              <strong>4</strong>
-              <span>sports ready to play</span>
-            </div>
-          </div>
+          <p className="banner-text" style={{ marginTop: '0.9rem' }}>
+            Use this app to see where and when students are playing, host your own
+            sessions, and help everyone find the right spot on campus to join in.
+          </p>
         </div>
         <div className="banner-graphic">
           <div className="banner-circle one" />
           <div className="banner-circle two" />
           <div className="banner-lines">
-            <span>Weeknight pickup · Corzine</span>
             <span>Make your own squad</span>
           </div>
-          <img
-            src="./PomfretSchool-removebg-preview.png"
-            alt="Pomfret School logo"
-            className="banner-logo-image"
-          />
         </div>
       </section>
 
