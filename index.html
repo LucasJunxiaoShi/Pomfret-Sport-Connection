@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pomfret Sports Connect</title>
+    <link rel="stylesheet" href="./styles.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <div id="root"></div>
+
+    <!-- React and ReactDOM via CDN -->
+    <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+
+    <!-- Babel for JSX in the browser -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <!-- Firebase (compat version for simple script usage) -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.11/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.11/firebase-firestore-compat.js"></script>
+
+    <script>
+      // TODO: Replace with your actual Firebase config from the Firebase console
+      // (Project settings → General → Your apps → Web app)
+      const firebaseConfig = {
+        apiKey: "YOUR_API_KEY_HERE",
+        authDomain: "YOUR_AUTH_DOMAIN_HERE",
+        projectId: "YOUR_PROJECT_ID_HERE",
+        storageBucket: "YOUR_STORAGE_BUCKET_HERE",
+        messagingSenderId: "YOUR_MESSAGING_SENDER_ID_HERE",
+        appId: "YOUR_APP_ID_HERE",
+      };
+
+      firebase.initializeApp(firebaseConfig);
+    </script>
+
+    <!-- App code -->
+    <script type="text/babel" src="./app.js"></script>
+  </body>
+</html>
