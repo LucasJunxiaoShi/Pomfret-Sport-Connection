@@ -4,25 +4,25 @@ const SPORTS = [
   {
     id: 'billiards',
     name: 'Billiards',
-    tagline: 'Precision shots in the OSU.',
+    tagline: 'Sink balls, talk trash, repeat.',
     locationHint: 'OSU, at the pool tables',
   },
   {
     id: 'soccer',
     name: 'Soccer',
-    tagline: 'Small-sided matches under the lights.',
+    tagline: 'Run around, kick stuff, pretend you\'re Messi.',
     locationHint: 'Fields or turf',
   },
   {
     id: 'basketball',
     name: 'Basketball',
-    tagline: 'Pickup runs in Lewis Gymnasium.',
+    tagline: 'Hoops, handles, and questionable calls.',
     locationHint: 'Lewis Gymnasium',
   },
   {
     id: 'squash',
     name: 'Squash',
-    tagline: 'Fast rallies on the courts.',
+    tagline: 'Tiny room, big swings, zero chill.',
     locationHint: 'OSU squash courts',
   },
 ];
@@ -91,7 +91,7 @@ async function saveEventsToFirebase(eventsBySport) {
   }
 }
 
-function AppShell({ children }) {
+function AppShell({ children, user, onSignOut }) {
   return (
     <div className="app-shell">
       <header className="app-header">
@@ -105,6 +105,14 @@ function AppShell({ children }) {
               <div className="brand-subtitle">Student-led pickup and rec games</div>
             </div>
           </div>
+          {user && (
+            <div className="user-info">
+              <span className="user-email">{user.email}</span>
+              <button className="text-button sign-out-btn" onClick={onSignOut}>
+                Sign out
+              </button>
+            </div>
+          )}
         </div>
       </header>
       <main className="app-main">
@@ -133,12 +141,12 @@ function Home({ onSelectSport }) {
             Pomfret <span className="banner-accent">Sports Signup</span>
           </h1>
           <p className="banner-text">
-            Organize pickup games, fill open spots, and keep Cardinal energy high
-            after classes. All student-run, all Pomfret pride.
+            Stop texting 47 group chats to find a game. We made this so you can
+            just show up and play.
           </p>
           <p className="banner-text" style={{ marginTop: '0.9rem' }}>
-            Use this app to see where and when students are playing, host your own
-            sessions, and help everyone find the right spot on campus to join in.
+            Pick a sport, see who's playing, or start your own session. It's
+            basically a vibe check for rec sports.
           </p>
         </div>
         <div className="banner-graphic">
@@ -152,10 +160,9 @@ function Home({ onSelectSport }) {
 
       <div className="section-heading-row">
         <div>
-          <h2 className="section-heading">Choose your sport</h2>
+          <h2 className="section-heading">Pick your poison</h2>
           <p className="section-caption">
-            Tap a card to view sessions, create games, and join other Pomfret
-            students.
+            Tap a sport. See who's got next. Join or start something.
           </p>
         </div>
       </div>
@@ -169,7 +176,48 @@ function Home({ onSelectSport }) {
           />
         ))}
       </section>
+
+      <section className="challenge-section">
+        <h3 className="challenge-heading">Call someone out</h3>
+        <p className="challenge-caption">
+          Think you're better than someone? Prove it. Drop their name and send the challenge.
+        </p>
+        <div className="challenge-grid">
+          {SPORTS.map((sport) => (
+            <ChallengeRow key={sport.id} sport={sport} />
+          ))}
+        </div>
+      </section>
     </>
+  );
+}
+
+function ChallengeRow({ sport }) {
+  const [challengedName, setChallengedName] = useState('');
+
+  const handleChallenge = () => {
+    if (!challengedName.trim()) return;
+    window.alert(`Challenge sent to ${challengedName.trim()} for ${sport.name}.`);
+    setChallengedName('');
+  };
+
+  return (
+    <div className="challenge-row">
+      <div className="challenge-sport-name">{sport.name}</div>
+      <input
+        className="form-input challenge-input"
+        placeholder={`Name of person to challenge in ${sport.name}`}
+        value={challengedName}
+        onChange={(e) => setChallengedName(e.target.value)}
+      />
+      <button
+        type="button"
+        className="secondary-button challenge-button"
+        onClick={handleChallenge}
+      >
+        Challenge
+      </button>
+    </div>
   );
 }
 
@@ -527,10 +575,137 @@ function CreateEventModal({ sport, onClose, onCreate }) {
   );
 }
 
+function AuthScreen({ onAuthSuccess }) {
+  const [isSignUp, setIsSignUp] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+
+    try {
+      const auth = firebase.auth();
+      if (isSignUp) {
+        await auth.createUserWithEmailAndPassword(email, password);
+      } else {
+        await auth.signInWithEmailAndPassword(email, password);
+      }
+      // onAuthStateChanged in App will handle the rest
+    } catch (err) {
+      setError(err.message || 'Authentication failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="auth-screen">
+      <div className="auth-card">
+        <div className="auth-header">
+          <div className="logo-mark" style={{ width: 50, height: 50 }}>
+            <span style={{ fontSize: '1rem' }}>PSC</span>
+          </div>
+          <h1 className="auth-title">Pomfret Sports Connect</h1>
+          <p className="auth-subtitle">
+            {isSignUp ? 'Create an account to get started' : 'Sign in to continue'}
+          </p>
+        </div>
+
+        <form onSubmit={handleSubmit} className="auth-form">
+          <div className="form-field">
+            <label className="form-label">Email</label>
+            <input
+              type="email"
+              className="form-input"
+              placeholder="you@pomfret.org"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
+          </div>
+
+          <div className="form-field">
+            <label className="form-label">Password</label>
+            <input
+              type="password"
+              className="form-input"
+              placeholder="Enter your password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              minLength={6}
+            />
+          </div>
+
+          {error && <div className="auth-error">{error}</div>}
+
+          <button
+            type="submit"
+            className="primary-button auth-submit"
+            disabled={loading}
+          >
+            {loading ? 'Please wait...' : isSignUp ? 'Create account' : 'Sign in'}
+          </button>
+        </form>
+
+        <div className="auth-switch">
+          {isSignUp ? (
+            <>
+              Already have an account?{' '}
+              <button
+                type="button"
+                className="text-button"
+                onClick={() => setIsSignUp(false)}
+              >
+                Sign in
+              </button>
+            </>
+          ) : (
+            <>
+              Don't have an account?{' '}
+              <button
+                type="button"
+                className="text-button"
+                onClick={() => setIsSignUp(true)}
+              >
+                Sign up
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function App() {
+  const [user, setUser] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
   const [selectedSportId, setSelectedSportId] = useState(null);
   const [eventsBySport, setEventsBySport] = useState({});
   const [isLoading, setIsLoading] = useState(true);
+
+  // Listen for auth state changes
+  useEffect(() => {
+    const auth = firebase.auth();
+    const unsubscribe = auth.onAuthStateChanged((firebaseUser) => {
+      setUser(firebaseUser);
+      setAuthLoading(false);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const handleSignOut = async () => {
+    try {
+      await firebase.auth().signOut();
+    } catch (err) {
+      console.error('Sign out error', err);
+    }
+  };
 
   useEffect(() => {
     const db = firebase.firestore();
@@ -583,8 +758,24 @@ function App() {
     setEventsBySport(updated);
   };
 
+  // Show loading while checking auth
+  if (authLoading) {
+    return (
+      <div className="auth-screen">
+        <div className="auth-card">
+          <p style={{ textAlign: 'center', color: '#9ca3af' }}>Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show auth screen if not logged in
+  if (!user) {
+    return <AuthScreen />;
+  }
+
   return (
-    <AppShell>
+    <AppShell user={user} onSignOut={handleSignOut}>
       {selectedSportId ? (
         <SportPage
           sportId={selectedSportId}

@@ -322,6 +322,55 @@ body {
   color: #9ca3af;
 }
 
+.challenge-section {
+  margin-top: 1.75rem;
+  border-radius: var(--radius-lg);
+  border: 1px solid rgba(148, 163, 184, 0.7);
+  background: radial-gradient(circle at top, #020617, #020617);
+  padding: 1rem;
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.8);
+}
+
+.challenge-heading {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+}
+
+.challenge-caption {
+  font-size: 0.8rem;
+  color: #9ca3af;
+  margin-bottom: 0.75rem;
+}
+
+.challenge-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.challenge-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.challenge-sport-name {
+  min-width: 80px;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.challenge-input {
+  flex: 1;
+  min-width: 140px;
+}
+
+.challenge-button {
+  font-size: 0.8rem;
+}
+
 .sport-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -815,4 +864,93 @@ body {
     flex-direction: column-reverse;
     align-items: flex-start;
   }
+}
+
+/* Auth screen styles */
+.auth-screen {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  background: radial-gradient(circle at top, #1f2933 0, #020617 50%, #020617 100%);
+}
+
+.auth-card {
+  max-width: 380px;
+  width: 100%;
+  border-radius: 20px;
+  background: radial-gradient(circle at top, #111827, #020617);
+  border: 1px solid rgba(156, 163, 175, 0.7);
+  padding: 1.5rem;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.7);
+}
+
+.auth-header {
+  text-align: center;
+  margin-bottom: 1.25rem;
+}
+
+.auth-header .logo-mark {
+  margin: 0 auto 0.75rem;
+}
+
+.auth-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #f9fafb;
+  margin-bottom: 0.25rem;
+}
+
+.auth-subtitle {
+  font-size: 0.85rem;
+  color: #9ca3af;
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.auth-error {
+  padding: 0.5rem 0.75rem;
+  border-radius: 8px;
+  background: rgba(220, 38, 38, 0.15);
+  border: 1px solid rgba(220, 38, 38, 0.4);
+  color: #fca5a5;
+  font-size: 0.8rem;
+}
+
+.auth-submit {
+  width: 100%;
+  margin-top: 0.5rem;
+}
+
+.auth-switch {
+  margin-top: 1rem;
+  text-align: center;
+  font-size: 0.8rem;
+  color: #9ca3af;
+}
+
+.auth-switch .text-button {
+  color: #f97373;
+}
+
+/* User info in header */
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.user-email {
+  font-size: 0.8rem;
+  color: #9ca3af;
+}
+
+.sign-out-btn {
+  color: #f97373;
+  font-size: 0.8rem;
 }
