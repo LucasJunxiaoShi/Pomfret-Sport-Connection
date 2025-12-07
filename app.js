@@ -168,6 +168,7 @@ function SportCard({ sport, onClick }) {
 function SportPage({ sportId, eventsBySport, onBack, onUpdateEvents }) {
   const sport = SPORTS.find((s) => s.id === sportId);
   const [showModal, setShowModal] = useState(false);
+  const [currentUserName, setCurrentUserName] = useState('');
 
   const events = eventsBySport[sportId] || [];
 
@@ -193,6 +194,12 @@ function SportPage({ sportId, eventsBySport, onBack, onUpdateEvents }) {
       };
     });
 
+    const updated = { ...eventsBySport, [sportId]: updatedSportEvents };
+    onUpdateEvents(updated);
+  };
+
+  const handleDelete = (eventId) => {
+    const updatedSportEvents = events.filter((e) => e.id !== eventId);
     const updated = { ...eventsBySport, [sportId]: updatedSportEvents };
     onUpdateEvents(updated);
   };
@@ -231,12 +238,26 @@ function SportPage({ sportId, eventsBySport, onBack, onUpdateEvents }) {
                   classmates can see them from any device.
                 </div>
               </div>
-              <button
-                className="primary-button"
-                onClick={() => setShowModal(true)}
-              >
-                New {sport.name} event
-              </button>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', alignItems: 'flex-end' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+                  <label className="form-label" style={{ marginBottom: '0.25rem' }}>
+                    Your name (to manage your sessions)
+                  </label>
+                  <input
+                    className="form-input"
+                    style={{ maxWidth: '220px' }}
+                    placeholder="Enter your name"
+                    value={currentUserName}
+                    onChange={(e) => setCurrentUserName(e.target.value)}
+                  />
+                </div>
+                <button
+                  className="primary-button"
+                  onClick={() => setShowModal(true)}
+                >
+                  New {sport.name} event
+                </button>
+              </div>
             </div>
             <div className="event-meta-row">
               <span className="meta-pill">Default location: {sport.locationHint}</span>
@@ -252,13 +273,23 @@ function SportPage({ sportId, eventsBySport, onBack, onUpdateEvents }) {
               </div>
             ) : (
               <div className="event-list">
-                {events.map((event) => (
-                  <EventCard
-                    key={event.id}
-                    event={event}
-                    onJoin={() => handleJoin(event.id)}
-                  />
-                ))}
+                {events.map((event) => {
+                  const canDelete =
+                    currentUserName &&
+                    event.hostName &&
+                    event.hostName.trim().toLowerCase() ===
+                      currentUserName.trim().toLowerCase();
+
+                  return (
+                    <EventCard
+                      key={event.id}
+                      event={event}
+                      onJoin={() => handleJoin(event.id)}
+                      onDelete={canDelete ? () => handleDelete(event.id) : undefined}
+                      canDelete={!!canDelete}
+                    />
+                  );
+                })}
               </div>
             )}
           </div>
@@ -298,7 +329,7 @@ function SportPage({ sportId, eventsBySport, onBack, onUpdateEvents }) {
   );
 }
 
-function EventCard({ event, onJoin }) {
+function EventCard({ event, onJoin, onDelete, canDelete }) {
   const filled = event.participants.length;
   const isFull = filled >= event.maxPlayers;
   const extra = Math.max(0, filled - 3);
@@ -340,6 +371,16 @@ function EventCard({ event, onJoin }) {
           Time: {event.timeRaw ? new Date(event.timeRaw).toLocaleString() : event.timeLabel}
         </span>
         <span className="event-capacity">Location: {event.location}</span>
+        {canDelete && onDelete && (
+          <button
+            type="button"
+            className="text-button"
+            style={{ marginLeft: 'auto' }}
+            onClick={onDelete}
+          >
+            Delete session
+          </button>
+        )}
       </div>
     </article>
   );
