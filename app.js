@@ -244,7 +244,7 @@ function Home({ onSelectSport, onSelectChallengeSport, eventsBySport }) {
               <div className="schedule-title">Upcoming sessions</div>
               <div className="schedule-counts">
                 <span className="schedule-pill schedule-pill-pending">
-                  pending: {
+                  Pending: {
                     scheduleItems.filter((item) => !item.confirmed).length
                   }
                 </span>
@@ -266,7 +266,7 @@ function Home({ onSelectSport, onSelectChallengeSport, eventsBySport }) {
                         : 'schedule-status-pending')
                     }
                   >
-                    {item.confirmed ? 'Confirmed' : 'pending'}
+                    {item.confirmed ? 'Confirmed' : 'Pending'}
                   </span>
                   <span className="schedule-main">
                     {item.sportName} · {item.hostName}
@@ -544,7 +544,7 @@ function SportCard({ sport, onClick }) {
   return (
     <button className="sport-card" onClick={onClick}>
       <div className="sport-chip-row">
-        <span className="sport-chip">Campbell Cardinals</span>
+        <span className="sport-chip">Game Free</span>
         <span className="sport-chip-tag">Open play</span>
       </div>
       <div className="sport-name">{sport.name}</div>
