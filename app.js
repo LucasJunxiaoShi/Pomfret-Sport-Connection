@@ -287,7 +287,18 @@ function Home({ onSelectSport, userName }) {
           <h3 className="challenges-inbox-title">🔥 You've been called out!</h3>
           <div className="challenges-list">
             {challenges
-              .filter((c) => c.status !== 'dismissed')
+              .filter((c) => {
+                // Hide dismissed
+                if (c.status === 'dismissed') return false;
+
+                // Hide past-time challenges (only if we have a valid time)
+                if (c.timeRaw) {
+                  const ts = Date.parse(c.timeRaw);
+                  if (!Number.isNaN(ts) && ts < Date.now()) return false;
+                }
+
+                return true;
+              })
               .map((c) => {
                 const timeText = c.timeLabel || 'Time not set yet';
                 const statusText =
@@ -513,125 +524,7 @@ function SportPage({ sportId, eventsBySport, onBack, onUpdateEvents, userName })
   const sport = SPORTS.find((s) => s.id === sportId);
   const [showModal, setShowModal] = useState(false);
   const [currentUserName, setCurrentUserName] = useState(userName || '');
-  const [challenges, setChallenges] = useState([]);
-
   const events = eventsBySport[sportId] || [];
-
-  // Per-sport challenges for this user (Stage 2.1: display only)
-  useEffect(() => {
-    if (!userName) return;
-    const db = firebase.firestore();
-    const userLower = userName.toLowerCase().trim();
-
-    const fromQuery = db
-      .collection('challenges')
-      .where('sport', '==', sport.name)
-      .where('fromNameLower', '==', userLower)
-      .orderBy('createdAt', 'desc');
-
-    const toQuery = db
-      .collection('challenges')
-      .where('sport', '==', sport.name)
-      .where('toNameLower', '==', userLower)
-      .orderBy('createdAt', 'desc');
-
-    const unsubFrom = fromQuery.onSnapshot(
-      (snap) => {
-        setChallenges((prev) => {
-          const others = prev.filter((c) => c._source !== 'from');
-          const fromDocs = snap.docs.map((doc) => ({ id: doc.id, _source: 'from', ...doc.data() }));
-          return [...others, ...fromDocs];
-        });
-      },
-      (err) => console.error('Challenge listener (from) error', err)
-    );
-
-    const unsubTo = toQuery.onSnapshot(
-      (snap) => {
-        setChallenges((prev) => {
-          const others = prev.filter((c) => c._source !== 'to');
-          const toDocs = snap.docs.map((doc) => ({ id: doc.id, _source: 'to', ...doc.data() }));
-          return [...others, ...toDocs];
-        });
-      },
-      (err) => console.error('Challenge listener (to) error', err)
-    );
-
-    return () => {
-      unsubFrom();
-      unsubTo();
-    };
-  }, [sport.name, userName]);
-
-  const handleChallengeAccept = async (challenge) => {
-    try {
-      const db = firebase.firestore();
-      await db.collection('challenges').doc(challenge.id).update({
-        status: 'accepted',
-        lastUpdatedBy:
-          userName &&
-          challenge.fromName &&
-          challenge.fromName.toLowerCase() === userName.toLowerCase()
-            ? 'from'
-            : 'to',
-      });
-    } catch (e) {
-      console.error('Failed to accept challenge', e);
-    }
-  };
-
-  const handleChallengeDismiss = async (challenge) => {
-    try {
-      const db = firebase.firestore();
-      await db.collection('challenges').doc(challenge.id).update({
-        status: 'dismissed',
-        lastUpdatedBy:
-          userName &&
-          challenge.fromName &&
-          challenge.fromName.toLowerCase() === userName.toLowerCase()
-            ? 'from'
-            : 'to',
-      });
-    } catch (e) {
-      console.error('Failed to dismiss challenge', e);
-    }
-  };
-  
-  const handleChallengeChangeTime = async (challenge) => {
-    try {
-      const existing = challenge.timeRaw || '';
-      const input = window.prompt(
-        'Pick a new time for this challenge (YYYY-MM-DDTHH:MM):',
-        existing
-      );
-      if (!input) return;
-
-      const date = new Date(input);
-      const label = isNaN(date.getTime())
-        ? 'Custom time'
-        : date.toLocaleString(undefined, {
-            month: 'short',
-            day: 'numeric',
-            hour: 'numeric',
-            minute: '2-digit',
-          });
-
-      const db = firebase.firestore();
-      await db.collection('challenges').doc(challenge.id).update({
-        timeRaw: input,
-        timeLabel: label,
-        status: 'pending',
-        lastUpdatedBy:
-          userName &&
-          challenge.fromName &&
-          challenge.fromName.toLowerCase() === userName.toLowerCase()
-            ? 'from'
-            : 'to',
-      });
-    } catch (e) {
-      console.error('Failed to change challenge time', e);
-    }
-  };
 
   const handleCreateEvent = (newEvent) => {
     const updated = {
@@ -757,86 +650,6 @@ function SportPage({ sportId, eventsBySport, onBack, onUpdateEvents, userName })
               </div>
             )}
           </div>
-
-          {challenges.length > 0 && (
-            <div style={{ marginTop: '2rem' }}>
-              <div className="event-header-card">
-                <div className="event-header-top">
-                  <div>
-                    <div className="event-chip">1-on-1 challenges</div>
-                    <div className="event-title">Scheduled callouts</div>
-                    <div className="event-subtitle">
-                      See who you\'ve challenged or who\'s challenged you in {sport.name},
-                      with the times you picked.
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div className="event-list" style={{ marginTop: '1rem' }}>
-                {challenges.map((c) => {
-                  const isYouChallenger =
-                    c.fromName &&
-                    userName &&
-                    c.fromName.toLowerCase() === userName.toLowerCase();
-
-                  const label = isYouChallenger
-                    ? `You challenged ${c.toName}`
-                    : `${c.fromName} challenged you`;
-
-                  const timeText = c.timeLabel || 'Time not set yet';
-
-                  const statusText =
-                    c.status === 'accepted'
-                      ? 'Accepted'
-                      : c.status === 'dismissed'
-                      ? 'Dismissed'
-                      : 'Pending';
-
-                  const canRespond = !c.status || c.status === 'pending';
-
-                  return (
-                    <article key={c.id} className="event-card">
-                      <div className="event-top-row">
-                        <div>
-                          <div className="host-name">{label}</div>
-                          <div className="event-location">Sport: {c.sport}</div>
-                        </div>
-                        <div className="event-time">{timeText}</div>
-                      </div>
-                      <div className="event-bottom-row">
-                        <span className="event-capacity">Status: {statusText}</span>
-                        {canRespond && (
-                          <>
-                            <button
-                              type="button"
-                              className="secondary-button"
-                              onClick={() => handleChallengeAccept(c)}
-                            >
-                              Accept
-                            </button>
-                            <button
-                              type="button"
-                              className="text-button"
-                              onClick={() => handleChallengeChangeTime(c)}
-                            >
-                              Change time
-                            </button>
-                            <button
-                              type="button"
-                              className="text-button"
-                              onClick={() => handleChallengeDismiss(c)}
-                            >
-                              Dismiss
-                            </button>
-                          </>
-                        )}
-                      </div>
-                    </article>
-                  );
-                })}
-              </div>
-            </div>
-          )}
         </div>
 
         <aside className="event-sidebar">
@@ -859,44 +672,6 @@ function SportPage({ sportId, eventsBySport, onBack, onUpdateEvents, userName })
               <span className="stat-value">{sport.name}</span>
             </div>
           </div>
-
-          {challenges.some((c) => c.status === 'accepted') && (
-            <div className="sidebar-card" style={{ marginTop: '1rem' }}>
-              <div className="sidebar-title">Your scheduled games</div>
-              <p className="sidebar-text">
-                Accepted 1-on-1 challenges for {sport.name}. Times are local to your device.
-              </p>
-              <div className="sidebar-stat-row" style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
-                {challenges
-                  .filter((c) => c.status === 'accepted')
-                  .map((c) => {
-                    const isYouChallenger =
-                      c.fromName &&
-                      userName &&
-                      c.fromName.toLowerCase() === userName.toLowerCase();
-
-                    const opponent = isYouChallenger ? c.toName : c.fromName;
-                    const timeText = c.timeLabel || 'Time not set yet';
-
-                    return (
-                      <div
-                        key={c.id}
-                        style={{
-                          display: 'flex',
-                          flexDirection: 'column',
-                          gap: '0.1rem',
-                          marginBottom: '0.5rem',
-                          fontSize: '0.8rem',
-                        }}
-                      >
-                        <span style={{ color: '#e5e7eb' }}>{timeText}</span>
-                        <span style={{ color: '#9ca3af' }}>vs {opponent}</span>
-                      </div>
-                    );
-                  })}
-              </div>
-            </div>
-          )}
         </aside>
       </div>
 
