@@ -165,6 +165,96 @@ body {
   box-shadow: 0 28px 60px rgba(0, 0, 0, 0.6);
 }
 
+.schedule-bar {
+  margin-bottom: 1.2rem;
+}
+
+.schedule-bar-inner {
+  border-radius: 18px;
+  padding: 0.75rem 1rem;
+  border: 1px solid rgba(148, 163, 184, 0.7);
+  background: radial-gradient(circle at top, #020617, #020617);
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.8);
+}
+
+.schedule-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.schedule-title {
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.schedule-counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.schedule-pill {
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+}
+
+.schedule-pill-impending {
+  background: rgba(234, 179, 8, 0.12);
+  border: 1px solid rgba(234, 179, 8, 0.5);
+  color: #facc15;
+}
+
+.schedule-pill-confirmed {
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.5);
+  color: #6ee7b7;
+}
+
+.schedule-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.5rem;
+}
+
+.schedule-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  font-size: 0.75rem;
+}
+
+.schedule-status {
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  align-self: flex-start;
+}
+
+.schedule-status-impending {
+  background: rgba(234, 179, 8, 0.15);
+  color: #facc15;
+}
+
+.schedule-status-confirmed {
+  background: rgba(16, 185, 129, 0.15);
+  color: #6ee7b7;
+}
+
+.schedule-main {
+  color: #e5e7eb;
+}
+
+.schedule-meta {
+  color: #9ca3af;
+}
+
 .banner-content {
   max-width: 380px;
   position: relative;

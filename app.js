@@ -194,9 +194,93 @@ function AppShell({ children, userName, onSignOut }) {
   );
 }
 
-function Home({ onSelectSport }) {
+function Home({ onSelectSport, eventsBySport }) {
+  const scheduleItems = React.useMemo(() => {
+    const items = [];
+    if (!eventsBySport || typeof eventsBySport !== 'object') return items;
+
+    Object.keys(eventsBySport).forEach((sportId) => {
+      const sport = SPORTS.find((s) => s.id === sportId);
+      const sportName = sport ? sport.name : sportId;
+      const events = Array.isArray(eventsBySport[sportId])
+        ? eventsBySport[sportId]
+        : [];
+
+      events.forEach((event) => {
+        if (!event || !event.timeRaw) return;
+        const ts = Date.parse(event.timeRaw);
+        if (Number.isNaN(ts)) return;
+
+        const filled = Array.isArray(event.participants)
+          ? event.participants.length
+          : 0;
+        const minPlayers = Number.isFinite(event.minPlayers)
+          ? event.minPlayers
+          : 1;
+
+        items.push({
+          id: event.id,
+          sportName,
+          hostName: event.hostName || 'Unknown host',
+          time: ts,
+          timeLabel: event.timeLabel,
+          filled,
+          minPlayers,
+          confirmed: filled >= minPlayers,
+        });
+      });
+    });
+
+    items.sort((a, b) => a.time - b.time);
+    return items;
+  }, [eventsBySport]);
+
   return (
     <>
+      {scheduleItems.length > 0 && (
+        <section className="schedule-bar">
+          <div className="schedule-bar-inner">
+            <div className="schedule-summary">
+              <div className="schedule-title">Upcoming sessions</div>
+              <div className="schedule-counts">
+                <span className="schedule-pill schedule-pill-impending">
+                  Impending: {
+                    scheduleItems.filter((item) => !item.confirmed).length
+                  }
+                </span>
+                <span className="schedule-pill schedule-pill-confirmed">
+                  Confirmed: {
+                    scheduleItems.filter((item) => item.confirmed).length
+                  }
+                </span>
+              </div>
+            </div>
+            <div className="schedule-list">
+              {scheduleItems.slice(0, 6).map((item) => (
+                <div key={item.id} className="schedule-item">
+                  <span
+                    className={
+                      'schedule-status ' +
+                      (item.confirmed
+                        ? 'schedule-status-confirmed'
+                        : 'schedule-status-impending')
+                    }
+                  >
+                    {item.confirmed ? 'Confirmed' : 'Impending'}
+                  </span>
+                  <span className="schedule-main">
+                    {item.sportName} · {item.hostName}
+                  </span>
+                  <span className="schedule-meta">
+                    {item.timeLabel} · {item.filled}/{item.minPlayers} joined
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
       <section className="banner">
         <div className="banner-content">
           <div className="badge">
@@ -509,10 +593,11 @@ function CreateEventModal({ sport, onClose, onCreate, initialHostName }) {
   const [time, setTime] = useState('');
   const [location, setLocation] = useState(sport.locationHint || '');
   const [maxPlayers, setMaxPlayers] = useState(6);
+  const [minPlayers, setMinPlayers] = useState(2);
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!hostName || !time || !location || !maxPlayers) {
+    if (!hostName || !time || !location || !maxPlayers || !minPlayers) {
       return;
     }
 
@@ -534,6 +619,7 @@ function CreateEventModal({ sport, onClose, onCreate, initialHostName }) {
       timeLabel,
       location,
       maxPlayers: Number(maxPlayers) || 0,
+      minPlayers: Number(minPlayers) || 1,
       participants: [],
     };
 
@@ -596,6 +682,18 @@ function CreateEventModal({ sport, onClose, onCreate, initialHostName }) {
               className="form-input"
               value={maxPlayers}
               onChange={(e) => setMaxPlayers(e.target.value)}
+            />
+          </div>
+
+          <div className="form-field">
+            <label className="form-label">Minimum players to confirm</label>
+            <input
+              type="number"
+              min="1"
+              max="30"
+              className="form-input"
+              value={minPlayers}
+              onChange={(e) => setMinPlayers(e.target.value)}
             />
           </div>
 
@@ -761,6 +859,7 @@ function App() {
         <Home
           onSelectSport={setSelectedSportId}
           userName={userName}
+          eventsBySport={eventsBySport}
         />
       )}
     </AppShell>
