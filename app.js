@@ -194,12 +194,13 @@ function AppShell({ children, userName, onSignOut }) {
   );
 }
 
-function Home({ onSelectSport, onSelectChallengeSport, eventsBySport, scheduleChallenges }) {
+function Home({ onSelectSport, eventsBySport, userName }) {
   const scheduleItems = React.useMemo(() => {
     const items = [];
     if (!eventsBySport || typeof eventsBySport !== 'object') return items;
 
-    // Normal sessions
+    const currentName = (userName || '').trim().toLowerCase();
+
     Object.keys(eventsBySport).forEach((sportId) => {
       const sport = SPORTS.find((s) => s.id === sportId);
       const sportName = sport ? sport.name : sportId;
@@ -212,9 +213,22 @@ function Home({ onSelectSport, onSelectChallengeSport, eventsBySport, scheduleCh
         const ts = Date.parse(event.timeRaw);
         if (Number.isNaN(ts)) return;
 
-        const filled = Array.isArray(event.participants)
-          ? event.participants.length
-          : 0;
+        // Visibility rule: show if you are the host OR you have joined
+        const hostName = (event.hostName || '').trim().toLowerCase();
+        const participants = Array.isArray(event.participants)
+          ? event.participants
+          : [];
+        const isHost = currentName && hostName && hostName === currentName;
+        const isParticipant = currentName
+          ? participants.some(
+              (p) => (p || '').trim().toLowerCase() === currentName
+            )
+          : false;
+        if (!isHost && !isParticipant) {
+          return;
+        }
+
+        const filled = participants.length;
         const minPlayers = Number.isFinite(event.minPlayers)
           ? event.minPlayers
           : 1;
@@ -232,34 +246,9 @@ function Home({ onSelectSport, onSelectChallengeSport, eventsBySport, scheduleCh
       });
     });
 
-    // Challenges sent by the current user (pending/confirmed)
-    if (Array.isArray(scheduleChallenges)) {
-      scheduleChallenges.forEach((ch) => {
-        if (!ch || !ch.timeRaw) return;
-        if (ch.status !== 'pending' && ch.status !== 'confirmed') return;
-
-        const ts = Date.parse(ch.timeRaw);
-        if (Number.isNaN(ts)) return;
-
-        const sport = SPORTS.find((s) => s.id === ch.sportId);
-        const sportName = ch.sportName || (sport ? sport.name : 'Sport');
-
-        items.push({
-          id: `challenge-${ch.id}`,
-          sportName,
-          hostName: ch.fromName || 'You',
-          time: ts,
-          timeLabel: ch.timeLabel,
-          filled: 0,
-          minPlayers: 1,
-          confirmed: ch.status === 'confirmed',
-        });
-      });
-    }
-
     items.sort((a, b) => a.time - b.time);
     return items;
-  }, [eventsBySport, scheduleChallenges]);
+  }, [eventsBySport]);
 
   return (
     <>
@@ -351,217 +340,6 @@ function Home({ onSelectSport, onSelectChallengeSport, eventsBySport, scheduleCh
           />
         ))}
       </section>
-
-      <section className="challenge-section">
-        <div className="challenge-heading">Challenge a friend</div>
-        <div className="challenge-caption">
-          Pick a sport and send a direct challenge. We'll walk you through
-          the details on the next screen.
-        </div>
-        <div className="sport-grid">
-          {SPORTS.map((sport) => (
-            <SportCard
-              key={`challenge-${sport.id}`}
-              sport={sport}
-              onClick={() => onSelectChallengeSport(sport.id)}
-            />
-          ))}
-        </div>
-      </section>
-    </>
-  );
-}
-
-function ChallengePage({ sportId, onBack, onChallengeCreated, activeChallenge }) {
-  const sport = SPORTS.find((s) => s.id === sportId);
-
-  const [opponentName, setOpponentName] = useState('');
-  const [time, setTime] = useState('');
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState('');
-
-  const isViewingExisting = !!activeChallenge;
-
-  const handleAccept = async () => {
-    if (!activeChallenge || !activeChallenge.id) return;
-    try {
-      const db = firebase.firestore();
-      await db
-        .collection('challenges')
-        .doc(activeChallenge.id)
-        .set({ status: 'confirmed' }, { merge: true });
-    } catch (e) {
-      console.error('Failed to accept challenge', e);
-    } finally {
-      onBack();
-    }
-  };
-
-  const handleDecline = async () => {
-    if (!activeChallenge || !activeChallenge.id) return;
-    try {
-      const db = firebase.firestore();
-      await db.collection('challenges').doc(activeChallenge.id).delete();
-    } catch (e) {
-      console.error('Failed to decline challenge', e);
-    } finally {
-      onBack();
-    }
-  };
-
-  const handleCreateChallenge = async (e) => {
-    e.preventDefault();
-    setError('');
-
-    if (!opponentName.trim() || !time) {
-      setError('Enter a name and time to send a challenge.');
-      return;
-    }
-
-    try {
-      setSubmitting(true);
-      const db = firebase.firestore();
-      const date = new Date(time);
-      const timeLabel = isNaN(date.getTime())
-        ? 'Custom time'
-        : date.toLocaleString(undefined, {
-            month: 'short',
-            day: 'numeric',
-            hour: 'numeric',
-            minute: '2-digit',
-          });
-
-      const challenge = {
-        fromName: firebase.auth().currentUser?.displayName || 'Someone',
-        fromNameLower:
-          (firebase.auth().currentUser?.displayName || 'someone')
-            .toLowerCase()
-            .trim(),
-        toName: opponentName.trim(),
-        toNameLower: opponentName.trim().toLowerCase(),
-        sportId: sport ? sport.id : sportId,
-        sportName: sport ? sport.name : 'Sport',
-        timeRaw: time,
-        timeLabel,
-        status: 'pending',
-        popupDismissed: false,
-        createdAt: Date.now(),
-      };
-
-      const docRef = await db.collection('challenges').add(challenge);
-
-      if (onChallengeCreated) {
-        onChallengeCreated({ id: docRef.id, ...challenge });
-      }
-
-      setSubmitting(false);
-      setOpponentName('');
-      setTime('');
-    } catch (e) {
-      console.error('Failed to create challenge', e);
-      setSubmitting(false);
-      setError('Failed to create challenge. Try again.');
-    }
-  };
-
-  return (
-    <>
-      <div className="top-bar">
-        <div>
-          <div className="breadcrumb">
-            <button className="back-button" onClick={onBack}>
-              <span>←</span>
-              <span>All sports</span>
-            </button>
-            <span>/</span>
-            <span className="current">Challenge {sport ? sport.name : ''}</span>
-          </div>
-          <h1 className="page-title">
-            Challenge in {sport ? sport.name : 'Sport'}
-          </h1>
-          {isViewingExisting ? (
-            <p className="page-subtitle">
-              You were challenged by {activeChallenge.fromName} to play{' '}
-              {activeChallenge.sportName} at {activeChallenge.timeLabel}.
-            </p>
-          ) : (
-            <p className="page-subtitle">
-              Send a direct challenge to a friend in this sport.
-            </p>
-          )}
-        </div>
-      </div>
-
-      {isViewingExisting ? (
-        <div className="challenge-section" style={{ marginTop: '0.75rem' }}>
-          <div className="challenge-heading">Challenge details</div>
-          <div className="challenge-caption">
-            Sport: {activeChallenge.sportName}
-          </div>
-          <div className="challenge-caption">
-            From: {activeChallenge.fromName}
-          </div>
-          <div className="challenge-caption">
-            To: {activeChallenge.toName}
-          </div>
-          <div className="challenge-caption" style={{ marginBottom: '0.75rem' }}>
-            Time: {activeChallenge.timeLabel}
-          </div>
-          <div style={{ display: 'flex', gap: '0.5rem' }}>
-            <button
-              type="button"
-              className="primary-button"
-              onClick={handleAccept}
-            >
-              Accept
-            </button>
-            <button
-              type="button"
-              className="secondary-button"
-              onClick={handleDecline}
-            >
-              Decline
-            </button>
-          </div>
-        </div>
-      ) : (
-        <div className="challenge-section" style={{ marginTop: '0.75rem' }}>
-          <div className="challenge-heading">Send a challenge</div>
-          <div className="challenge-caption">
-            Choose who you want to challenge and when you want to play.
-          </div>
-          <form onSubmit={handleCreateChallenge} className="challenge-grid">
-            <div className="challenge-row">
-              <div className="challenge-sport-name">Opponent name</div>
-              <input
-                className="form-input challenge-input"
-                placeholder="e.g. Alex Chen"
-                value={opponentName}
-                onChange={(e) => setOpponentName(e.target.value)}
-              />
-            </div>
-            <div className="challenge-row">
-              <div className="challenge-sport-name">Time</div>
-              <input
-                type="datetime-local"
-                className="form-input challenge-input"
-                value={time}
-                onChange={(e) => setTime(e.target.value)}
-              />
-            </div>
-            {error && <div className="auth-error">{error}</div>}
-            <div className="challenge-row">
-              <button
-                type="submit"
-                className="primary-button challenge-button"
-                disabled={submitting}
-              >
-                {submitting ? 'Sending...' : 'Send challenge'}
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
     </>
   );
 }
@@ -588,6 +366,22 @@ function SportPage({ sportId, eventsBySport, onBack, onUpdateEvents, userName })
   const [showModal, setShowModal] = useState(false);
   const [currentUserName, setCurrentUserName] = useState(userName || '');
   const events = eventsBySport[sportId] || [];
+  const currentNameLower = (currentUserName || '').trim().toLowerCase();
+
+  const visibleEvents = events.filter((event) => {
+    if (!event) return false;
+    const hostName = (event.hostName || '').trim().toLowerCase();
+    const participants = Array.isArray(event.participants)
+      ? event.participants
+      : [];
+    const isHost = currentNameLower && hostName && hostName === currentNameLower;
+    const isParticipant = currentNameLower
+      ? participants.some(
+          (p) => (p || '').trim().toLowerCase() === currentNameLower
+        )
+      : false;
+    return isHost || isParticipant;
+  });
 
   const handleCreateEvent = (newEvent) => {
     const updated = {
@@ -632,7 +426,10 @@ function SportPage({ sportId, eventsBySport, onBack, onUpdateEvents, userName })
     onUpdateEvents(updated);
   };
 
-  const totalPlayers = events.reduce((sum, e) => sum + e.participants.length, 0);
+  const totalPlayers = visibleEvents.reduce(
+    (sum, e) => sum + (Array.isArray(e.participants) ? e.participants.length : 0),
+    0
+  );
 
   return (
     <>
@@ -693,25 +490,15 @@ function SportPage({ sportId, eventsBySport, onBack, onUpdateEvents, userName })
             </div>
           </div>
 
-          {/* Challenge inbox for this sport */}
-          {Array.isArray(eventsBySport.__incomingChallenges) && (
-            <ChallengesInbox
-              challenges={eventsBySport.__incomingChallenges.filter(
-                (ch) => ch.sportId === sportId && ch.status === 'pending' && !ch.popupDismissed
-              )}
-              onViewChallenge={eventsBySport.__onViewChallenge}
-            />
-          )}
-
           <div style={{ marginTop: '1rem' }}>
-            {events.length === 0 ? (
+            {visibleEvents.length === 0 ? (
               <div className="empty-state">
                 <strong>No sessions yet.</strong> Be the first to host a game and
                 bring classmates together.
               </div>
             ) : (
               <div className="event-list">
-                {events.map((event) => {
+                {visibleEvents.map((event) => {
                   const canDelete =
                     currentUserName &&
                     event.hostName &&
@@ -1015,10 +802,6 @@ function App() {
     return stored || null;
   });
   const [selectedSportId, setSelectedSportId] = useState(null);
-  const [selectedChallengeSportId, setSelectedChallengeSportId] = useState(null);
-  const [activeChallenge, setActiveChallenge] = useState(null);
-  const [incomingChallenges, setIncomingChallenges] = useState([]);
-  const [fromChallenges, setFromChallenges] = useState([]);
   const [eventsBySport, setEventsBySport] = useState({});
   const [isLoading, setIsLoading] = useState(true);
 
@@ -1090,57 +873,6 @@ function App() {
     setEventsBySport(updated);
   };
 
-  useEffect(() => {
-    if (!userName) {
-      setIncomingChallenges([]);
-      setFromChallenges([]);
-      setActiveChallenge(null);
-      return;
-    }
-
-    const db = firebase.firestore();
-    const lower = userName.trim().toLowerCase();
-
-    const unsubscribeTo = db
-      .collection('challenges')
-      .where('toNameLower', '==', lower)
-      .onSnapshot(
-        (snap) => {
-          const items = [];
-          snap.forEach((doc) => {
-            const data = doc.data() || {};
-            items.push({ id: doc.id, ...data });
-          });
-          setIncomingChallenges(items);
-        },
-        (err) => {
-          console.error('Failed to listen for challenges', err);
-        }
-      );
-
-    const unsubscribeFrom = db
-      .collection('challenges')
-      .where('fromNameLower', '==', lower)
-      .onSnapshot(
-        (snap) => {
-          const items = [];
-          snap.forEach((doc) => {
-            const data = doc.data() || {};
-            items.push({ id: doc.id, ...data });
-          });
-          setFromChallenges(items);
-        },
-        (err) => {
-          console.error('Failed to listen for outgoing challenges', err);
-        }
-      );
-
-    return () => {
-      unsubscribeTo();
-      unsubscribeFrom();
-    };
-  }, [userName]);
-
   // Show name entry if no name set
   if (!userName) {
     return <NameEntryScreen onNameSet={handleNameSet} />;
@@ -1148,43 +880,10 @@ function App() {
 
   return (
     <AppShell userName={userName} onSignOut={handleChangeName}>
-      {selectedChallengeSportId ? (
-        <ChallengePage
-          sportId={selectedChallengeSportId}
-          onBack={() => {
-            setSelectedChallengeSportId(null);
-            setActiveChallenge(null);
-          }}
-          onChallengeCreated={(ch) => {
-            // Immediately reflect the created challenge in any views if needed
-            console.log('Challenge created', ch);
-          }}
-          activeChallenge={activeChallenge}
-        />
-      ) : selectedSportId ? (
+      {selectedSportId ? (
         <SportPage
           sportId={selectedSportId}
-          eventsBySport={{
-            ...eventsBySport,
-            __incomingChallenges: incomingChallenges,
-            __onViewChallenge: (ch) => {
-              // Hide popup for this challenge and navigate to detail view
-              try {
-                const db = firebase.firestore();
-                db.collection('challenges')
-                  .doc(ch.id)
-                  .set({ popupDismissed: true }, { merge: true })
-                  .catch((err) => {
-                    console.error('Failed to dismiss challenge popup', err);
-                  });
-              } catch (e) {
-                console.error('Error dismissing challenge popup', e);
-              }
-
-              setActiveChallenge(ch);
-              setSelectedChallengeSportId(ch.sportId);
-            },
-          }}
+          eventsBySport={eventsBySport}
           onBack={() => setSelectedSportId(null)}
           onUpdateEvents={handleUpdateEvents}
           userName={userName}
@@ -1192,10 +891,8 @@ function App() {
       ) : (
         <Home
           onSelectSport={setSelectedSportId}
-          onSelectChallengeSport={setSelectedChallengeSportId}
           userName={userName}
           eventsBySport={eventsBySport}
-          scheduleChallenges={fromChallenges}
         />
       )}
     </AppShell>
