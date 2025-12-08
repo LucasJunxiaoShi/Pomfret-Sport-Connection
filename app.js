@@ -194,11 +194,12 @@ function AppShell({ children, userName, onSignOut }) {
   );
 }
 
-function Home({ onSelectSport, onSelectChallengeSport, eventsBySport }) {
+function Home({ onSelectSport, onSelectChallengeSport, eventsBySport, scheduleChallenges }) {
   const scheduleItems = React.useMemo(() => {
     const items = [];
     if (!eventsBySport || typeof eventsBySport !== 'object') return items;
 
+    // Normal sessions
     Object.keys(eventsBySport).forEach((sportId) => {
       const sport = SPORTS.find((s) => s.id === sportId);
       const sportName = sport ? sport.name : sportId;
@@ -231,9 +232,34 @@ function Home({ onSelectSport, onSelectChallengeSport, eventsBySport }) {
       });
     });
 
+    // Challenges sent by the current user (pending/confirmed)
+    if (Array.isArray(scheduleChallenges)) {
+      scheduleChallenges.forEach((ch) => {
+        if (!ch || !ch.timeRaw) return;
+        if (ch.status !== 'pending' && ch.status !== 'confirmed') return;
+
+        const ts = Date.parse(ch.timeRaw);
+        if (Number.isNaN(ts)) return;
+
+        const sport = SPORTS.find((s) => s.id === ch.sportId);
+        const sportName = ch.sportName || (sport ? sport.name : 'Sport');
+
+        items.push({
+          id: `challenge-${ch.id}`,
+          sportName,
+          hostName: ch.fromName || 'You',
+          time: ts,
+          timeLabel: ch.timeLabel,
+          filled: 0,
+          minPlayers: 1,
+          confirmed: ch.status === 'confirmed',
+        });
+      });
+    }
+
     items.sort((a, b) => a.time - b.time);
     return items;
-  }, [eventsBySport]);
+  }, [eventsBySport, scheduleChallenges]);
 
   return (
     <>
@@ -992,6 +1018,7 @@ function App() {
   const [selectedChallengeSportId, setSelectedChallengeSportId] = useState(null);
   const [activeChallenge, setActiveChallenge] = useState(null);
   const [incomingChallenges, setIncomingChallenges] = useState([]);
+  const [fromChallenges, setFromChallenges] = useState([]);
   const [eventsBySport, setEventsBySport] = useState({});
   const [isLoading, setIsLoading] = useState(true);
 
@@ -1066,6 +1093,7 @@ function App() {
   useEffect(() => {
     if (!userName) {
       setIncomingChallenges([]);
+      setFromChallenges([]);
       setActiveChallenge(null);
       return;
     }
@@ -1073,7 +1101,7 @@ function App() {
     const db = firebase.firestore();
     const lower = userName.trim().toLowerCase();
 
-    const unsubscribe = db
+    const unsubscribeTo = db
       .collection('challenges')
       .where('toNameLower', '==', lower)
       .onSnapshot(
@@ -1090,7 +1118,27 @@ function App() {
         }
       );
 
-    return () => unsubscribe();
+    const unsubscribeFrom = db
+      .collection('challenges')
+      .where('fromNameLower', '==', lower)
+      .onSnapshot(
+        (snap) => {
+          const items = [];
+          snap.forEach((doc) => {
+            const data = doc.data() || {};
+            items.push({ id: doc.id, ...data });
+          });
+          setFromChallenges(items);
+        },
+        (err) => {
+          console.error('Failed to listen for outgoing challenges', err);
+        }
+      );
+
+    return () => {
+      unsubscribeTo();
+      unsubscribeFrom();
+    };
   }, [userName]);
 
   // Show name entry if no name set
@@ -1147,6 +1195,7 @@ function App() {
           onSelectChallengeSport={setSelectedChallengeSportId}
           userName={userName}
           eventsBySport={eventsBySport}
+          scheduleChallenges={fromChallenges}
         />
       )}
     </AppShell>
