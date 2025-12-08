@@ -175,7 +175,7 @@ function AppShell({ children, userName, onSignOut }) {
             <div className="user-info">
               <span className="user-email">{userName}</span>
               <button className="text-button sign-out-btn" onClick={onSignOut}>
-                Change name
+                Log out
               </button>
             </div>
           )}
