@@ -291,8 +291,8 @@ function Home({ onSelectSport, eventsBySport }) {
             Pomfret <span className="banner-accent">Sports Signup</span>
           </h1>
           <p className="banner-text">
-            Stop texting 47 group chats to find a game. We made this so you can
-            just show up and play.
+            Stop texting 47 group chats to find a game. Show up and play as
+            you want-no stress, no confusion
           </p>
           <p className="banner-text" style={{ marginTop: '0.9rem' }}>
             Pick a sport, see who's playing, or start your own session. It's
