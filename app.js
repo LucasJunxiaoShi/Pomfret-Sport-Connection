@@ -417,6 +417,31 @@ function SportPage({ sportId, eventsBySport, onBack, onUpdateEvents, userName })
     onUpdateEvents(updated);
   };
 
+  const handleCancelJoin = (eventId) => {
+    const name = (currentUserName || '').trim();
+    if (!name) {
+      window.alert('Enter your name in the box at the top first.');
+      return;
+    }
+
+    const updatedSportEvents = events.map((e) => {
+      if (e.id !== eventId) return e;
+
+      const participants = Array.isArray(e.participants) ? e.participants : [];
+      const nextParticipants = participants.filter(
+        (p) => (p || '').trim().toLowerCase() !== name.trim().toLowerCase()
+      );
+
+      return {
+        ...e,
+        participants: nextParticipants,
+      };
+    });
+
+    const updated = { ...eventsBySport, [sportId]: updatedSportEvents };
+    onUpdateEvents(updated);
+  };
+
   const totalPlayers = events.reduce(
     (sum, e) => sum + (Array.isArray(e.participants) ? e.participants.length : 0),
     0
@@ -510,11 +535,16 @@ function SportPage({ sportId, eventsBySport, onBack, onUpdateEvents, userName })
                     ? undefined
                     : () => handleJoin(event.id);
 
+                  const cancelHandler = alreadyParticipant
+                    ? () => handleCancelJoin(event.id)
+                    : undefined;
+
                   return (
                     <EventCard
                       key={event.id}
                       event={event}
                       onJoin={joinHandler}
+                      onCancel={cancelHandler}
                       onDelete={canDelete ? () => handleDelete(event.id) : undefined}
                       canDelete={!!canDelete}
                       isHost={isHost}
@@ -561,10 +591,11 @@ function SportPage({ sportId, eventsBySport, onBack, onUpdateEvents, userName })
   );
 }
 
-function EventCard({ event, onJoin, onDelete, canDelete, isHost }) {
+function EventCard({ event, onJoin, onCancel, onDelete, canDelete, isHost }) {
   const filled = event.participants.length;
   const isFull = filled >= event.maxPlayers;
-  const cannotJoin = isFull || isHost || !onJoin;
+  const isParticipant = !!onCancel;
+  const cannotJoin = (!isParticipant && isFull) || isHost || (!onJoin && !onCancel);
   const extra = Math.max(0, filled - 3);
   const initialParticipants = event.participants.slice(0, 3);
 
@@ -599,8 +630,18 @@ function EventCard({ event, onJoin, onDelete, canDelete, isHost }) {
             </div>
           )}
         </div>
-        <button className="join-button" onClick={onJoin} disabled={cannotJoin}>
-          {isHost ? 'You are host' : isFull ? 'Game full' : 'Join game'}
+        <button
+          className="join-button"
+          onClick={isParticipant ? onCancel : onJoin}
+          disabled={cannotJoin}
+        >
+          {isHost
+            ? 'You are host'
+            : isParticipant
+            ? 'Leave game'
+            : isFull
+            ? 'Game full'
+            : 'Join game'}
         </button>
       </div>
 
