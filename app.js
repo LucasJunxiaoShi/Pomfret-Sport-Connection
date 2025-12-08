@@ -91,6 +91,28 @@ async function saveEventsToFirebase(eventsBySport) {
   }
 }
 
+async function signInWithGoogle() {
+  try {
+    const auth = firebase.auth();
+    const provider = new firebase.auth.GoogleAuthProvider();
+    const result = await auth.signInWithPopup(provider);
+    const user = result.user;
+    if (!user) {
+      throw new Error('No user returned from Google sign-in');
+    }
+
+    const profileName = (user.displayName || '').trim();
+    if (!profileName) {
+      throw new Error('Google account has no display name');
+    }
+
+    return profileName;
+  } catch (e) {
+    console.error('Google sign-in failed', e);
+    throw e;
+  }
+}
+
 // User profile helpers (using name as the unique ID)
 function getLocalUser() {
   const name = localStorage.getItem('pomfretUserName');
@@ -580,27 +602,26 @@ function CreateEventModal({ sport, onClose, onCreate, initialHostName }) {
 }
 
 function NameEntryScreen({ onNameSet }) {
-  const [displayName, setDisplayName] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleGoogleSignIn = async () => {
     setError('');
 
-    if (!displayName.trim()) {
-      setError('Please enter your name.');
-      return;
-    }
-
     setLoading(true);
-    const ok = await registerUser(displayName.trim());
-    setLoading(false);
+    try {
+      const profileName = await signInWithGoogle();
+      const ok = await registerUser(profileName);
+      setLoading(false);
 
-    if (ok) {
-      onNameSet(displayName.trim());
-    } else {
-      setError('Something went wrong. Try again.');
+      if (ok) {
+        onNameSet(profileName);
+      } else {
+        setError('Something went wrong. Try again.');
+      }
+    } catch (e) {
+      setLoading(false);
+      setError('Google sign-in failed. Try again.');
     }
   };
 
@@ -612,30 +633,19 @@ function NameEntryScreen({ onNameSet }) {
             <span style={{ fontSize: '1rem' }}>PSC</span>
           </div>
           <h1 className="auth-title">Pomfret Sports Connect</h1>
-          <p className="auth-subtitle">Enter your name to get started</p>
+          <p className="auth-subtitle">Sign in with your Pomfret Google account</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="auth-form">
-          <div className="form-field">
-            <label className="form-label">Name on Pomfret Card</label>
-            <input
-              type="text"
-              className="form-input"
-              placeholder="e.g. John Smith"
-              value={displayName}
-              onChange={(e) => setDisplayName(e.target.value)}
-              autoFocus
-            />
-          </div>
-
+        <form className="auth-form" onSubmit={(e) => e.preventDefault()}>
           {error && <div className="auth-error">{error}</div>}
 
           <button
-            type="submit"
+            type="button"
             className="primary-button auth-submit"
             disabled={loading}
+            onClick={handleGoogleSignIn}
           >
-            {loading ? 'Please wait...' : 'Let\'s go'}
+            {loading ? 'Please wait...' : 'Continue with Google'}
           </button>
         </form>
       </div>
@@ -658,7 +668,15 @@ function App() {
 
   const handleChangeName = () => {
     clearLocalUser();
-    setUserName(null);
+    const auth = firebase.auth();
+    auth
+      .signOut()
+      .catch((e) => {
+        console.error('Failed to sign out from Firebase', e);
+      })
+      .finally(() => {
+        setUserName(null);
+      });
   };
 
   useEffect(() => {
