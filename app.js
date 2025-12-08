@@ -393,6 +393,13 @@ function SportPage({ sportId, eventsBySport, onBack, onUpdateEvents, userName })
       ) {
         return e;
       }
+      // Do not add the same participant twice
+      const alreadyParticipant = Array.isArray(e.participants)
+        ? e.participants.some(
+            (p) => (p || '').trim().toLowerCase() === name.trim().toLowerCase()
+          )
+        : false;
+      if (alreadyParticipant) return e;
       if (e.participants.length >= e.maxPlayers) return e;
       return {
         ...e,
@@ -491,11 +498,23 @@ function SportPage({ sportId, eventsBySport, onBack, onUpdateEvents, userName })
 
                   const isHost = !!canDelete;
 
+                  const alreadyParticipant = Array.isArray(event.participants)
+                    ? event.participants.some(
+                        (p) =>
+                          (p || '').trim().toLowerCase() ===
+                          (currentUserName || '').trim().toLowerCase()
+                      )
+                    : false;
+
+                  const joinHandler = alreadyParticipant
+                    ? undefined
+                    : () => handleJoin(event.id);
+
                   return (
                     <EventCard
                       key={event.id}
                       event={event}
-                      onJoin={() => handleJoin(event.id)}
+                      onJoin={joinHandler}
                       onDelete={canDelete ? () => handleDelete(event.id) : undefined}
                       canDelete={!!canDelete}
                       isHost={isHost}
@@ -545,7 +564,7 @@ function SportPage({ sportId, eventsBySport, onBack, onUpdateEvents, userName })
 function EventCard({ event, onJoin, onDelete, canDelete, isHost }) {
   const filled = event.participants.length;
   const isFull = filled >= event.maxPlayers;
-  const cannotJoin = isFull || isHost;
+  const cannotJoin = isFull || isHost || !onJoin;
   const extra = Math.max(0, filled - 3);
   const initialParticipants = event.participants.slice(0, 3);
 
