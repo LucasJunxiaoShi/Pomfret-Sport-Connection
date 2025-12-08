@@ -366,22 +366,6 @@ function SportPage({ sportId, eventsBySport, onBack, onUpdateEvents, userName })
   const [showModal, setShowModal] = useState(false);
   const [currentUserName, setCurrentUserName] = useState(userName || '');
   const events = eventsBySport[sportId] || [];
-  const currentNameLower = (currentUserName || '').trim().toLowerCase();
-
-  const visibleEvents = events.filter((event) => {
-    if (!event) return false;
-    const hostName = (event.hostName || '').trim().toLowerCase();
-    const participants = Array.isArray(event.participants)
-      ? event.participants
-      : [];
-    const isHost = currentNameLower && hostName && hostName === currentNameLower;
-    const isParticipant = currentNameLower
-      ? participants.some(
-          (p) => (p || '').trim().toLowerCase() === currentNameLower
-        )
-      : false;
-    return isHost || isParticipant;
-  });
 
   const handleCreateEvent = (newEvent) => {
     const updated = {
@@ -426,7 +410,7 @@ function SportPage({ sportId, eventsBySport, onBack, onUpdateEvents, userName })
     onUpdateEvents(updated);
   };
 
-  const totalPlayers = visibleEvents.reduce(
+  const totalPlayers = events.reduce(
     (sum, e) => sum + (Array.isArray(e.participants) ? e.participants.length : 0),
     0
   );
@@ -491,14 +475,14 @@ function SportPage({ sportId, eventsBySport, onBack, onUpdateEvents, userName })
           </div>
 
           <div style={{ marginTop: '1rem' }}>
-            {visibleEvents.length === 0 ? (
+            {events.length === 0 ? (
               <div className="empty-state">
                 <strong>No sessions yet.</strong> Be the first to host a game and
                 bring classmates together.
               </div>
             ) : (
               <div className="event-list">
-                {visibleEvents.map((event) => {
+                {events.map((event) => {
                   const canDelete =
                     currentUserName &&
                     event.hostName &&
