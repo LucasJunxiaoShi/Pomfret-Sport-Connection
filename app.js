@@ -295,8 +295,7 @@ function Home({ onSelectSport, eventsBySport }) {
             you want-no stress, no confusion
           </p>
           <p className="banner-text" style={{ marginTop: '0.9rem' }}>
-            Pick a sport, see who's playing, or start your own session. It's
-            basically a vibe check for rec sports.
+            Pick a sport, see who's ready to play, or start your own session.
           </p>
         </div>
         <div className="banner-graphic">
@@ -310,7 +309,7 @@ function Home({ onSelectSport, eventsBySport }) {
 
       <div className="section-heading-row">
         <div>
-          <h2 className="section-heading">Pick your poison</h2>
+          <h2 className="section-heading">Pick your sport</h2>
           <p className="section-caption">
             Tap a sport. See who's got next. Join or start something.
           </p>
