@@ -227,8 +227,57 @@ function Home({ onSelectSport, userName }) {
     return () => unsubscribe();
   }, [userName]);
 
-  const handleDismiss = async (id) => {
-    await dismissChallenge(id);
+  const handleHomeUpdate = async (id, updates) => {
+    try {
+      const db = firebase.firestore();
+      await db.collection('challenges').doc(id).update(updates);
+    } catch (e) {
+      console.error('Failed to update challenge from home inbox', e);
+    }
+  };
+
+  const handleHomeAccept = async (challenge) => {
+    await handleHomeUpdate(challenge.id, {
+      status: 'accepted',
+      lastUpdatedBy: 'to',
+    });
+  };
+
+  const handleHomeDismiss = async (challenge) => {
+    await handleHomeUpdate(challenge.id, {
+      status: 'dismissed',
+      lastUpdatedBy: 'to',
+    });
+  };
+
+  const handleHomeChangeTime = async (challenge) => {
+    try {
+      const existing = challenge.timeRaw || '';
+      const input = window.prompt(
+        'Pick a new time for this challenge (YYYY-MM-DDTHH:MM):',
+        existing
+      );
+      if (!input) return;
+
+      const date = new Date(input);
+      const label = isNaN(date.getTime())
+        ? 'Custom time'
+        : date.toLocaleString(undefined, {
+            month: 'short',
+            day: 'numeric',
+            hour: 'numeric',
+            minute: '2-digit',
+          });
+
+      await handleHomeUpdate(challenge.id, {
+        timeRaw: input,
+        timeLabel: label,
+        status: 'pending',
+        lastUpdatedBy: 'to',
+      });
+    } catch (e) {
+      console.error('Failed to change time from home inbox', e);
+    }
   };
 
   return (
@@ -237,24 +286,66 @@ function Home({ onSelectSport, userName }) {
         <section className="challenges-inbox">
           <h3 className="challenges-inbox-title">🔥 You've been called out!</h3>
           <div className="challenges-list">
-            {challenges.map((c) => (
-              <div key={c.id} className="challenge-card">
-                <div className="challenge-card-text">
-                  <strong>{c.fromName}</strong> challenged you to <strong>{c.sport}</strong>
-                  {c.timeLabel && (
-                    <span style={{ display: 'block', fontSize: '0.8rem', color: '#9ca3af' }}>
-                      Time: {c.timeLabel}
-                    </span>
-                  )}
-                </div>
-                <button
-                  className="text-button dismiss-btn"
-                  onClick={() => handleDismiss(c.id)}
-                >
-                  Dismiss
-                </button>
-              </div>
-            ))}
+            {challenges
+              .filter((c) => c.status !== 'dismissed')
+              .map((c) => {
+                const timeText = c.timeLabel || 'Time not set yet';
+                const statusText =
+                  c.status === 'accepted'
+                    ? 'Accepted'
+                    : c.status === 'dismissed'
+                    ? 'Dismissed'
+                    : 'Pending';
+
+                const canRespond = !c.status || c.status === 'pending';
+
+                return (
+                  <div key={c.id} className="challenge-card">
+                    <div className="challenge-card-text">
+                      <strong>{c.fromName}</strong> challenged you to <strong>{c.sport}</strong>
+                      <span
+                        style={{ display: 'block', fontSize: '0.8rem', color: '#9ca3af' }}
+                      >
+                        Time: {timeText}
+                      </span>
+                      <span
+                        style={{ display: 'block', fontSize: '0.8rem', color: '#9ca3af' }}
+                      >
+                        Status: {statusText}
+                      </span>
+                    </div>
+                    {canRespond ? (
+                      <div style={{ display: 'flex', gap: '0.5rem' }}>
+                        <button
+                          className="secondary-button"
+                          onClick={() => handleHomeAccept(c)}
+                        >
+                          Accept
+                        </button>
+                        <button
+                          className="text-button"
+                          onClick={() => handleHomeChangeTime(c)}
+                        >
+                          Change time
+                        </button>
+                        <button
+                          className="text-button dismiss-btn"
+                          onClick={() => handleHomeDismiss(c)}
+                        >
+                          Dismiss
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        className="text-button dismiss-btn"
+                        onClick={() => handleHomeDismiss(c)}
+                      >
+                        Hide
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
           </div>
         </section>
       )}
