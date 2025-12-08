@@ -505,7 +505,7 @@ function SportPage({ sportId, eventsBySport, onBack, onUpdateEvents, userName })
       console.error('Failed to dismiss challenge', e);
     }
   };
-
+  
   const handleChallengeChangeTime = async (challenge) => {
     try {
       const existing = challenge.timeRaw || '';
