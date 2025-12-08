@@ -210,6 +210,12 @@ body {
   color: #facc15;
 }
 
+.schedule-pill-pending {
+  background: rgba(234, 179, 8, 0.12);
+  border: 1px solid rgba(234, 179, 8, 0.5);
+  color: #facc15;
+}
+
 .schedule-pill-confirmed {
   background: rgba(16, 185, 129, 0.12);
   border: 1px solid rgba(16, 185, 129, 0.5);
@@ -238,6 +244,11 @@ body {
 }
 
 .schedule-status-impending {
+  background: rgba(234, 179, 8, 0.15);
+  color: #facc15;
+}
+
+.schedule-status-pending {
   background: rgba(234, 179, 8, 0.15);
   color: #facc15;
 }
