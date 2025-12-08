@@ -954,3 +954,62 @@ body {
   color: #f97373;
   font-size: 0.8rem;
 }
+
+/* Challenges inbox */
+.challenges-inbox {
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  border-radius: 12px;
+  background: rgba(249, 115, 115, 0.1);
+  border: 1px solid rgba(249, 115, 115, 0.3);
+}
+
+.challenges-inbox-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #f97373;
+  margin-bottom: 0.75rem;
+}
+
+.challenges-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.challenge-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  background: rgba(17, 24, 39, 0.6);
+  border: 1px solid rgba(156, 163, 175, 0.2);
+}
+
+.challenge-card-text {
+  font-size: 0.9rem;
+  color: #e5e7eb;
+}
+
+.challenge-card-text strong {
+  color: #f9fafb;
+}
+
+.dismiss-btn {
+  color: #9ca3af;
+  font-size: 0.8rem;
+}
+
+.dismiss-btn:hover {
+  color: #f97373;
+}
+
+/* Challenge status message */
+.challenge-status {
+  grid-column: 1 / -1;
+  font-size: 0.8rem;
+  color: #9ca3af;
+  margin-top: 0.25rem;
+}

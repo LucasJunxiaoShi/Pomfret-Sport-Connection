@@ -91,7 +91,79 @@ async function saveEventsToFirebase(eventsBySport) {
   }
 }
 
-function AppShell({ children, user, onSignOut }) {
+// User profile helpers (using name as the unique ID)
+function getLocalUser() {
+  const name = localStorage.getItem('pomfretUserName');
+  return name ? { displayName: name, odisplayNameLower: name.toLowerCase() } : null;
+}
+
+function setLocalUser(name) {
+  localStorage.setItem('pomfretUserName', name);
+}
+
+function clearLocalUser() {
+  localStorage.removeItem('pomfretUserName');
+}
+
+async function registerUser(displayName) {
+  try {
+    const db = firebase.firestore();
+    const nameLower = displayName.toLowerCase().trim();
+    // Use lowercase name as doc ID for easy lookup
+    await db.collection('users').doc(nameLower).set(
+      { displayName: displayName.trim(), displayNameLower: nameLower },
+      { merge: true }
+    );
+    setLocalUser(displayName.trim());
+    return true;
+  } catch (e) {
+    console.error('Failed to register user', e);
+    return false;
+  }
+}
+
+async function findUserByName(name) {
+  try {
+    const db = firebase.firestore();
+    const nameLower = name.toLowerCase().trim();
+    const snap = await db.collection('users').doc(nameLower).get();
+    if (!snap.exists) return null;
+    return { odisplayNameLower: snap.id, ...snap.data() };
+  } catch (e) {
+    console.error('Failed to find user', e);
+    return null;
+  }
+}
+
+// Challenge helpers (using name as identifier)
+async function sendChallenge(fromName, toName, sportName) {
+  try {
+    const db = firebase.firestore();
+    await db.collection('challenges').add({
+      fromName: fromName.trim(),
+      fromNameLower: fromName.toLowerCase().trim(),
+      toName: toName.trim(),
+      toNameLower: toName.toLowerCase().trim(),
+      sport: sportName,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+    });
+    return true;
+  } catch (e) {
+    console.error('Failed to send challenge', e);
+    return false;
+  }
+}
+
+async function dismissChallenge(challengeId) {
+  try {
+    const db = firebase.firestore();
+    await db.collection('challenges').doc(challengeId).delete();
+  } catch (e) {
+    console.error('Failed to dismiss challenge', e);
+  }
+}
+
+function AppShell({ children, userName, onSignOut }) {
   return (
     <div className="app-shell">
       <header className="app-header">
@@ -105,11 +177,11 @@ function AppShell({ children, user, onSignOut }) {
               <div className="brand-subtitle">Student-led pickup and rec games</div>
             </div>
           </div>
-          {user && (
+          {userName && (
             <div className="user-info">
-              <span className="user-email">{user.email}</span>
+              <span className="user-email">{userName}</span>
               <button className="text-button sign-out-btn" onClick={onSignOut}>
-                Sign out
+                Change name
               </button>
             </div>
           )}
@@ -128,9 +200,55 @@ function AppShell({ children, user, onSignOut }) {
   );
 }
 
-function Home({ onSelectSport }) {
+function Home({ onSelectSport, userName }) {
+  const [challenges, setChallenges] = useState([]);
+
+  // Listen for incoming challenges
+  useEffect(() => {
+    if (!userName) return;
+    const db = firebase.firestore();
+    const nameLower = userName.toLowerCase().trim();
+    const unsubscribe = db
+      .collection('challenges')
+      .where('toNameLower', '==', nameLower)
+      .orderBy('createdAt', 'desc')
+      .onSnapshot(
+        (snap) => {
+          const list = snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+          setChallenges(list);
+        },
+        (err) => console.error('Challenge listener error', err)
+      );
+    return () => unsubscribe();
+  }, [userName]);
+
+  const handleDismiss = async (id) => {
+    await dismissChallenge(id);
+  };
+
   return (
     <>
+      {challenges.length > 0 && (
+        <section className="challenges-inbox">
+          <h3 className="challenges-inbox-title">🔥 You've been called out!</h3>
+          <div className="challenges-list">
+            {challenges.map((c) => (
+              <div key={c.id} className="challenge-card">
+                <div className="challenge-card-text">
+                  <strong>{c.fromName}</strong> challenged you to <strong>{c.sport}</strong>
+                </div>
+                <button
+                  className="text-button dismiss-btn"
+                  onClick={() => handleDismiss(c.id)}
+                >
+                  Dismiss
+                </button>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
       <section className="banner">
         <div className="banner-content">
           <div className="badge">
@@ -184,7 +302,11 @@ function Home({ onSelectSport }) {
         </p>
         <div className="challenge-grid">
           {SPORTS.map((sport) => (
-            <ChallengeRow key={sport.id} sport={sport} />
+            <ChallengeRow
+              key={sport.id}
+              sport={sport}
+              currentUserName={userName}
+            />
           ))}
         </div>
       </section>
@@ -192,13 +314,31 @@ function Home({ onSelectSport }) {
   );
 }
 
-function ChallengeRow({ sport }) {
+function ChallengeRow({ sport, currentUserName }) {
   const [challengedName, setChallengedName] = useState('');
+  const [status, setStatus] = useState('');
 
-  const handleChallenge = () => {
-    if (!challengedName.trim()) return;
-    window.alert(`Challenge sent to ${challengedName.trim()} for ${sport.name}.`);
-    setChallengedName('');
+  const handleChallenge = async () => {
+    const name = challengedName.trim();
+    if (!name) return;
+    if (!currentUserName) {
+      setStatus('Enter your name first.');
+      return;
+    }
+
+    if (name.toLowerCase() === currentUserName.toLowerCase()) {
+      setStatus("You can't challenge yourself!");
+      return;
+    }
+
+    setStatus('Sending...');
+    const ok = await sendChallenge(currentUserName, name, sport.name);
+    if (ok) {
+      setStatus(`Challenge sent to ${name}!`);
+      setChallengedName('');
+    } else {
+      setStatus('Failed to send challenge.');
+    }
   };
 
   return (
@@ -206,9 +346,12 @@ function ChallengeRow({ sport }) {
       <div className="challenge-sport-name">{sport.name}</div>
       <input
         className="form-input challenge-input"
-        placeholder={`Name of person to challenge in ${sport.name}`}
+        placeholder={`Name on their Pomfret Card`}
         value={challengedName}
-        onChange={(e) => setChallengedName(e.target.value)}
+        onChange={(e) => {
+          setChallengedName(e.target.value);
+          setStatus('');
+        }}
       />
       <button
         type="button"
@@ -217,6 +360,7 @@ function ChallengeRow({ sport }) {
       >
         Challenge
       </button>
+      {status && <div className="challenge-status">{status}</div>}
     </div>
   );
 }
@@ -575,30 +719,28 @@ function CreateEventModal({ sport, onClose, onCreate }) {
   );
 }
 
-function AuthScreen({ onAuthSuccess }) {
-  const [isSignUp, setIsSignUp] = useState(false);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+function NameEntryScreen({ onNameSet }) {
+  const [displayName, setDisplayName] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
-    setLoading(true);
 
-    try {
-      const auth = firebase.auth();
-      if (isSignUp) {
-        await auth.createUserWithEmailAndPassword(email, password);
-      } else {
-        await auth.signInWithEmailAndPassword(email, password);
-      }
-      // onAuthStateChanged in App will handle the rest
-    } catch (err) {
-      setError(err.message || 'Authentication failed');
-    } finally {
-      setLoading(false);
+    if (!displayName.trim()) {
+      setError('Please enter your name.');
+      return;
+    }
+
+    setLoading(true);
+    const ok = await registerUser(displayName.trim());
+    setLoading(false);
+
+    if (ok) {
+      onNameSet(displayName.trim());
+    } else {
+      setError('Something went wrong. Try again.');
     }
   };
 
@@ -610,34 +752,19 @@ function AuthScreen({ onAuthSuccess }) {
             <span style={{ fontSize: '1rem' }}>PSC</span>
           </div>
           <h1 className="auth-title">Pomfret Sports Connect</h1>
-          <p className="auth-subtitle">
-            {isSignUp ? 'Create an account to get started' : 'Sign in to continue'}
-          </p>
+          <p className="auth-subtitle">Enter your name to get started</p>
         </div>
 
         <form onSubmit={handleSubmit} className="auth-form">
           <div className="form-field">
-            <label className="form-label">Email</label>
+            <label className="form-label">Name on Pomfret Card</label>
             <input
-              type="email"
+              type="text"
               className="form-input"
-              placeholder="you@pomfret.org"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-            />
-          </div>
-
-          <div className="form-field">
-            <label className="form-label">Password</label>
-            <input
-              type="password"
-              className="form-input"
-              placeholder="Enter your password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              minLength={6}
+              placeholder="e.g. John Smith"
+              value={displayName}
+              onChange={(e) => setDisplayName(e.target.value)}
+              autoFocus
             />
           </div>
 
@@ -648,63 +775,30 @@ function AuthScreen({ onAuthSuccess }) {
             className="primary-button auth-submit"
             disabled={loading}
           >
-            {loading ? 'Please wait...' : isSignUp ? 'Create account' : 'Sign in'}
+            {loading ? 'Please wait...' : 'Let\'s go'}
           </button>
         </form>
-
-        <div className="auth-switch">
-          {isSignUp ? (
-            <>
-              Already have an account?{' '}
-              <button
-                type="button"
-                className="text-button"
-                onClick={() => setIsSignUp(false)}
-              >
-                Sign in
-              </button>
-            </>
-          ) : (
-            <>
-              Don't have an account?{' '}
-              <button
-                type="button"
-                className="text-button"
-                onClick={() => setIsSignUp(true)}
-              >
-                Sign up
-              </button>
-            </>
-          )}
-        </div>
       </div>
     </div>
   );
 }
 
 function App() {
-  const [user, setUser] = useState(null);
-  const [authLoading, setAuthLoading] = useState(true);
+  const [userName, setUserName] = useState(() => {
+    const stored = localStorage.getItem('pomfretUserName');
+    return stored || null;
+  });
   const [selectedSportId, setSelectedSportId] = useState(null);
   const [eventsBySport, setEventsBySport] = useState({});
   const [isLoading, setIsLoading] = useState(true);
 
-  // Listen for auth state changes
-  useEffect(() => {
-    const auth = firebase.auth();
-    const unsubscribe = auth.onAuthStateChanged((firebaseUser) => {
-      setUser(firebaseUser);
-      setAuthLoading(false);
-    });
-    return () => unsubscribe();
-  }, []);
+  const handleNameSet = (name) => {
+    setUserName(name);
+  };
 
-  const handleSignOut = async () => {
-    try {
-      await firebase.auth().signOut();
-    } catch (err) {
-      console.error('Sign out error', err);
-    }
+  const handleChangeName = () => {
+    clearLocalUser();
+    setUserName(null);
   };
 
   useEffect(() => {
@@ -758,24 +852,13 @@ function App() {
     setEventsBySport(updated);
   };
 
-  // Show loading while checking auth
-  if (authLoading) {
-    return (
-      <div className="auth-screen">
-        <div className="auth-card">
-          <p style={{ textAlign: 'center', color: '#9ca3af' }}>Loading...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Show auth screen if not logged in
-  if (!user) {
-    return <AuthScreen />;
+  // Show name entry if no name set
+  if (!userName) {
+    return <NameEntryScreen onNameSet={handleNameSet} />;
   }
 
   return (
-    <AppShell user={user} onSignOut={handleSignOut}>
+    <AppShell userName={userName} onSignOut={handleChangeName}>
       {selectedSportId ? (
         <SportPage
           sportId={selectedSportId}
@@ -784,7 +867,10 @@ function App() {
           onUpdateEvents={handleUpdateEvents}
         />
       ) : (
-        <Home onSelectSport={setSelectedSportId} />
+        <Home
+          onSelectSport={setSelectedSportId}
+          userName={userName}
+        />
       )}
     </AppShell>
   );
