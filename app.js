@@ -287,6 +287,14 @@ function SportPage({ sportId, eventsBySport, onBack, onUpdateEvents, userName })
 
     const updatedSportEvents = events.map((e) => {
       if (e.id !== eventId) return e;
+      // Do not allow the host to join their own session as a participant
+      if (
+        e.hostName &&
+        name &&
+        e.hostName.trim().toLowerCase() === name.trim().toLowerCase()
+      ) {
+        return e;
+      }
       if (e.participants.length >= e.maxPlayers) return e;
       return {
         ...e,
@@ -380,6 +388,8 @@ function SportPage({ sportId, eventsBySport, onBack, onUpdateEvents, userName })
                     event.hostName.trim().toLowerCase() ===
                       currentUserName.trim().toLowerCase();
 
+                  const isHost = !!canDelete;
+
                   return (
                     <EventCard
                       key={event.id}
@@ -387,6 +397,7 @@ function SportPage({ sportId, eventsBySport, onBack, onUpdateEvents, userName })
                       onJoin={() => handleJoin(event.id)}
                       onDelete={canDelete ? () => handleDelete(event.id) : undefined}
                       canDelete={!!canDelete}
+                      isHost={isHost}
                     />
                   );
                 })}
@@ -430,9 +441,10 @@ function SportPage({ sportId, eventsBySport, onBack, onUpdateEvents, userName })
   );
 }
 
-function EventCard({ event, onJoin, onDelete, canDelete }) {
+function EventCard({ event, onJoin, onDelete, canDelete, isHost }) {
   const filled = event.participants.length;
   const isFull = filled >= event.maxPlayers;
+  const cannotJoin = isFull || isHost;
   const extra = Math.max(0, filled - 3);
   const initialParticipants = event.participants.slice(0, 3);
 
@@ -467,8 +479,8 @@ function EventCard({ event, onJoin, onDelete, canDelete }) {
             </div>
           )}
         </div>
-        <button className="join-button" onClick={onJoin} disabled={isFull}>
-          {isFull ? 'Game full' : 'Join game'}
+        <button className="join-button" onClick={onJoin} disabled={cannotJoin}>
+          {isHost ? 'You are host' : isFull ? 'Game full' : 'Join game'}
         </button>
       </div>
 
