@@ -4,7 +4,7 @@ const SPORTS = [
   {
     id: 'billiards',
     name: 'Billiards',
-    tagline: 'Sink balls, talk trash, repeat.',
+    tagline: 'Hit with precision, scratch the competition',
     locationHint: 'OSU, at the pool tables',
   },
   {
@@ -326,7 +326,7 @@ function Home({ onSelectSport, eventsBySport, userName }) {
         <div>
           <h2 className="section-heading">Pick your sport</h2>
           <p className="section-caption">
-            Tap a sport. See who's got next. Join or start something.
+            Tap a sport. See who's ready to play. Join or start your own game.
           </p>
         </div>
       </div>
@@ -897,6 +897,27 @@ function App() {
     };
   }, []);
 
+  // #region agent log
+  useEffect(() => {
+    const body = document.body;
+    const computedStyle = window.getComputedStyle(body);
+    const bgImage = computedStyle.backgroundImage;
+    fetch('http://127.0.0.1:7242/ingest/400a9bef-c8e5-41f2-bd12-0681025ecf6b', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        location: 'app.js:900',
+        message: 'Background check after React render',
+        data: { bgImage, allBackgroundProps: { bgImage, bgSize: computedStyle.backgroundSize, bgPosition: computedStyle.backgroundPosition } },
+        timestamp: Date.now(),
+        sessionId: 'debug-session',
+        runId: 'run1',
+        hypothesisId: 'A,C,D,E'
+      })
+    }).catch(() => {});
+  }, []);
+  // #endregion
+
   useEffect(() => {
     if (isLoading) return;
     saveEventsToFirebase(eventsBySport);
@@ -942,6 +963,73 @@ function App() {
     </AppShell>
   );
 }
+
+// #region agent log
+// Instrumentation to debug background image issue
+const checkBackgroundImage = () => {
+  const body = document.body;
+  const computedStyle = window.getComputedStyle(body);
+  const bgImage = computedStyle.backgroundImage;
+  const bgSize = computedStyle.backgroundSize;
+  const bgPosition = computedStyle.backgroundPosition;
+  const bgRepeat = computedStyle.backgroundRepeat;
+  
+  // Test if image URL resolves
+  const testImg = new Image();
+  testImg.onload = () => {
+    fetch('http://127.0.0.1:7242/ingest/400a9bef-c8e5-41f2-bd12-0681025ecf6b', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        location: 'app.js:947',
+        message: 'Background image loaded successfully',
+        data: { bgImage, bgSize, bgPosition, bgRepeat, imageUrl: './Pomfret-School-1sz6f4irss744swgo00080k4w-1122.jpg' },
+        timestamp: Date.now(),
+        sessionId: 'debug-session',
+        runId: 'run1',
+        hypothesisId: 'B'
+      })
+    }).catch(() => {});
+  };
+  testImg.onerror = () => {
+    fetch('http://127.0.0.1:7242/ingest/400a9bef-c8e5-41f2-bd12-0681025ecf6b', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        location: 'app.js:947',
+        message: 'Background image failed to load',
+        data: { bgImage, bgSize, bgPosition, bgRepeat, imageUrl: './Pomfret-School-1sz6f4irss744swgo00080k4w-1122.jpg', error: 'Image load failed' },
+        timestamp: Date.now(),
+        sessionId: 'debug-session',
+        runId: 'run1',
+        hypothesisId: 'B'
+      })
+    }).catch(() => {});
+  };
+  testImg.src = './Pomfret-School-1sz6f4irss744swgo00080k4w-1122.jpg';
+  
+  fetch('http://127.0.0.1:7242/ingest/400a9bef-c8e5-41f2-bd12-0681025ecf6b', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      location: 'app.js:947',
+      message: 'Computed background styles',
+      data: { bgImage, bgSize, bgPosition, bgRepeat, bodyStyle: body.style.backgroundImage || 'none' },
+      timestamp: Date.now(),
+      sessionId: 'debug-session',
+      runId: 'run1',
+      hypothesisId: 'A,C,D'
+    })
+  }).catch(() => {});
+};
+
+// Check immediately on page load
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', checkBackgroundImage);
+} else {
+  checkBackgroundImage();
+}
+// #endregion
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(<App />);
