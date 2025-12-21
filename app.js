@@ -4,7 +4,7 @@ const SPORTS = [
   {
     id: 'billiards',
     name: 'Billiards',
-    tagline: 'Hit with precision, scratch the competition',
+    tagline: 'Sink balls, talk trash, repeat.',
     locationHint: 'OSU, at the pool tables',
   },
   {
@@ -24,6 +24,12 @@ const SPORTS = [
     name: 'Squash',
     tagline: 'Tiny room, big swings, zero chill.',
     locationHint: 'OSU squash courts',
+  },
+  {
+    id: 'pingpong',
+    name: 'Ping Pong',
+    tagline: 'Fast paddles, quick reflexes, epic rallies.',
+    locationHint: 'Student Union or rec room',
   },
 ];
 
@@ -326,7 +332,7 @@ function Home({ onSelectSport, eventsBySport, userName }) {
         <div>
           <h2 className="section-heading">Pick your sport</h2>
           <p className="section-caption">
-            Tap a sport. See who's ready to play. Join or start your own game.
+            Tap a sport. See who's got next. Join or start something.
           </p>
         </div>
       </div>
