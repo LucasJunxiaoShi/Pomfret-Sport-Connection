@@ -1,0 +1,105 @@
+[debug] [2025-12-25T03:08:34.167Z] ----------------------------------------------------------------------
+[debug] [2025-12-25T03:08:34.168Z] Command:       /opt/homebrew/Cellar/node/25.2.1/bin/node /opt/homebrew/bin/firebase login
+[debug] [2025-12-25T03:08:34.168Z] CLI Version:   15.1.0
+[debug] [2025-12-25T03:08:34.168Z] Platform:      darwin
+[debug] [2025-12-25T03:08:34.168Z] Node Version:  v25.2.1
+[debug] [2025-12-25T03:08:34.168Z] Time:          Thu Dec 25 2025 11:08:34 GMT+0800 (China Standard Time)
+[debug] [2025-12-25T03:08:34.168Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2025-12-25T03:08:34.168Z] >>> [apiv2][query] GET https://firebase-public.firebaseio.com/cli.json [none]
+[info] i  The Firebase CLI’s MCP server feature can optionally make use of Gemini in Firebase. Learn more about Gemini in Firebase and how it uses your data: https://firebase.google.com/docs/gemini-in-firebase#how-gemini-in-firebase-uses-your-data 
+[debug] [2025-12-25T03:08:35.202Z] <<< [apiv2][status] GET https://firebase-public.firebaseio.com/cli.json 200
+[debug] [2025-12-25T03:08:35.203Z] <<< [apiv2][body] GET https://firebase-public.firebaseio.com/cli.json {"cloudBuildErrorAfter":1594252800000,"cloudBuildWarnAfter":1590019200000,"defaultNode10After":1594252800000,"minVersion":"3.0.5","node8DeploysDisabledAfter":1613390400000,"node8RuntimeDisabledAfter":1615809600000,"node8WarnAfter":1600128000000}
+[info] 
+[info] i  Firebase optionally collects CLI and Emulator Suite usage and error reporting information to help improve our products. Data is collected in accordance with Google's privacy policy (https://policies.google.com/privacy) and is not used to identify you. 
+[info] 
+[info] i  To change your preferences at any time, run `firebase logout` and `firebase login` again. 
+[info] 
+[info] Visit this URL on this device to log in:
+[info] https://accounts.google.com/o/oauth2/auth?client_id=563584335869-fgrhgmd47bqnekij5i8b5pr03ho849e6.apps.googleusercontent.com&scope=email%20openid%20https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fcloudplatformprojects.readonly%20https%3A%2F%2Fwww.googleapis.com%2Fauth%2Ffirebase%20https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fcloud-platform&response_type=code&state=1038721710&redirect_uri=http%3A%2F%2Flocalhost%3A9005
+[info] 
+[info] Waiting for authentication...
+[debug] [2025-12-25T03:09:08.963Z] ----------------------------------------------------------------------
+[debug] [2025-12-25T03:09:08.964Z] Command:       /opt/homebrew/Cellar/node/25.2.1/bin/node /opt/homebrew/bin/firebase login
+[debug] [2025-12-25T03:09:08.965Z] CLI Version:   15.1.0
+[debug] [2025-12-25T03:09:08.965Z] Platform:      darwin
+[debug] [2025-12-25T03:09:08.965Z] Node Version:  v25.2.1
+[debug] [2025-12-25T03:09:08.965Z] Time:          Thu Dec 25 2025 11:09:08 GMT+0800 (China Standard Time)
+[debug] [2025-12-25T03:09:08.965Z] ----------------------------------------------------------------------
+[debug] 
+[info] i  The Firebase CLI’s MCP server feature can optionally make use of Gemini in Firebase. Learn more about Gemini in Firebase and how it uses your data: https://firebase.google.com/docs/gemini-in-firebase#how-gemini-in-firebase-uses-your-data 
+[info] 
+[info] i  Firebase optionally collects CLI and Emulator Suite usage and error reporting information to help improve our products. Data is collected in accordance with Google's privacy policy (https://policies.google.com/privacy) and is not used to identify you. 
+[info] 
+[info] i  To change your preferences at any time, run `firebase logout` and `firebase login` again. 
+[info] 
+[info] Visit this URL on this device to log in:
+[info] https://accounts.google.com/o/oauth2/auth?client_id=563584335869-fgrhgmd47bqnekij5i8b5pr03ho849e6.apps.googleusercontent.com&scope=email%20openid%20https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fcloudplatformprojects.readonly%20https%3A%2F%2Fwww.googleapis.com%2Fauth%2Ffirebase%20https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fcloud-platform&response_type=code&state=278787761&redirect_uri=http%3A%2F%2Flocalhost%3A9005
+[info] 
+[info] Waiting for authentication...
+[debug] [2025-12-25T03:09:38.015Z] ----------------------------------------------------------------------
+[debug] [2025-12-25T03:09:38.016Z] Command:       /opt/homebrew/Cellar/node/25.2.1/bin/node /opt/homebrew/bin/firebase login
+[debug] [2025-12-25T03:09:38.016Z] CLI Version:   15.1.0
+[debug] [2025-12-25T03:09:38.016Z] Platform:      darwin
+[debug] [2025-12-25T03:09:38.016Z] Node Version:  v25.2.1
+[debug] [2025-12-25T03:09:38.016Z] Time:          Thu Dec 25 2025 11:09:38 GMT+0800 (China Standard Time)
+[debug] [2025-12-25T03:09:38.016Z] ----------------------------------------------------------------------
+[debug] 
+[info] i  The Firebase CLI’s MCP server feature can optionally make use of Gemini in Firebase. Learn more about Gemini in Firebase and how it uses your data: https://firebase.google.com/docs/gemini-in-firebase#how-gemini-in-firebase-uses-your-data 
+[info] 
+[info] i  Firebase optionally collects CLI and Emulator Suite usage and error reporting information to help improve our products. Data is collected in accordance with Google's privacy policy (https://policies.google.com/privacy) and is not used to identify you. 
+[info] 
+[info] i  To change your preferences at any time, run `firebase logout` and `firebase login` again. 
+[info] 
+[info] Visit this URL on this device to log in:
+[info] https://accounts.google.com/o/oauth2/auth?client_id=563584335869-fgrhgmd47bqnekij5i8b5pr03ho849e6.apps.googleusercontent.com&scope=email%20openid%20https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fcloudplatformprojects.readonly%20https%3A%2F%2Fwww.googleapis.com%2Fauth%2Ffirebase%20https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fcloud-platform&response_type=code&state=914077633&redirect_uri=http%3A%2F%2Flocalhost%3A9005
+[info] 
+[info] Waiting for authentication...
+[debug] [2025-12-25T03:09:49.024Z] >>> [apiv2][query] POST https://accounts.google.com/o/oauth2/token [none]
+[debug] [2025-12-25T03:09:49.024Z] >>> [apiv2][body] POST https://accounts.google.com/o/oauth2/token [omitted]
+[debug] [2025-12-25T03:11:04.060Z] *** [apiv2] error from fetch(https://accounts.google.com/o/oauth2/token, {"headers":{},"method":"POST","body":{"_overheadLength":543,"_valueLength":208,"_valuesToMeasure":[],"writable":false,"readable":true,"dataSize":0,"maxDataSize":2097152,"pauseStreams":true,"_released":true,"_streams":[],"_currentStream":null,"_insideLoop":false,"_pendingNext":false,"_boundary":"--------------------------54a203a1fedc7bb470af6f58","_events":{},"_eventsCount":1}}): FetchError: request to https://accounts.google.com/o/oauth2/token failed, reason: connect ETIMEDOUT 173.194.202.84:443
+[debug] [2025-12-25T03:11:04.061Z] Token Fetch Error: FirebaseError: Failed to make request to https://accounts.google.com/o/oauth2/token
+    at RetryOperation._fn (/opt/homebrew/lib/node_modules/firebase-tools/lib/apiv2.js:271:31)
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+[error] Authentication Error: Your credentials are no longer valid. Please run firebase login --reauth
+
+For CI servers and headless environments, generate a new token with firebase login:ci
+[debug] [2025-12-25T03:11:04.067Z] >>> [apiv2][query] POST https://auth.firebase.tools/attest [none]
+[debug] [2025-12-25T03:11:04.067Z] >>> [apiv2][body] POST https://auth.firebase.tools/attest {"session_id":"ef29df8b-10ff-4e08-8541-e48c9f82bc41"}
+[debug] [2025-12-25T03:11:06.081Z] <<< [apiv2][status] POST https://auth.firebase.tools/attest 200
+[debug] [2025-12-25T03:11:06.082Z] <<< [apiv2][body] POST https://auth.firebase.tools/attest {"token":"OkSIt_eJhhra1rBvxAM4SzD0HsOPJzvSog5WNpD79B0"}
+[info] 
+[info] To sign in to the Firebase CLI:
+[info] 
+[info] 1. Take note of your session ID:
+[info] 
+[info]    EF29D
+[info] 
+[info] 2. Visit the URL below on any device and follow the instructions to get your code:
+[info] 
+[info]    https://auth.firebase.tools/login?code_challenge=mrtrabsvwj_rcHLTyPCP_Ceqc4OFwLg8rAGF8wU4zzw&session=ef29df8b-10ff-4e08-8541-e48c9f82bc41&attest=OkSIt_eJhhra1rBvxAM4SzD0HsOPJzvSog5WNpD79B0
+[info] 
+[info] 3. Paste or enter the authorization code below once you have it:
+[info] 
+[debug] [2025-12-25T03:11:27.071Z] >>> [apiv2][query] POST https://accounts.google.com/o/oauth2/token [none]
+[debug] [2025-12-25T03:11:27.071Z] >>> [apiv2][body] POST https://accounts.google.com/o/oauth2/token [omitted]
+[debug] [2025-12-25T03:11:58.061Z] ----------------------------------------------------------------------
+[debug] [2025-12-25T03:11:58.062Z] Command:       /opt/homebrew/Cellar/node/25.2.1/bin/node /opt/homebrew/bin/firebase login
+[debug] [2025-12-25T03:11:58.062Z] CLI Version:   15.1.0
+[debug] [2025-12-25T03:11:58.062Z] Platform:      darwin
+[debug] [2025-12-25T03:11:58.062Z] Node Version:  v25.2.1
+[debug] [2025-12-25T03:11:58.062Z] Time:          Thu Dec 25 2025 11:11:58 GMT+0800 (China Standard Time)
+[debug] [2025-12-25T03:11:58.062Z] ----------------------------------------------------------------------
+[debug] 
+[info] i  The Firebase CLI’s MCP server feature can optionally make use of Gemini in Firebase. Learn more about Gemini in Firebase and how it uses your data: https://firebase.google.com/docs/gemini-in-firebase#how-gemini-in-firebase-uses-your-data 
+[info] 
+[info] i  Firebase optionally collects CLI and Emulator Suite usage and error reporting information to help improve our products. Data is collected in accordance with Google's privacy policy (https://policies.google.com/privacy) and is not used to identify you. 
+[info] 
+[info] i  To change your preferences at any time, run `firebase logout` and `firebase login` again. 
+[info] 
+[info] Visit this URL on this device to log in:
+[info] https://accounts.google.com/o/oauth2/auth?client_id=563584335869-fgrhgmd47bqnekij5i8b5pr03ho849e6.apps.googleusercontent.com&scope=email%20openid%20https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fcloudplatformprojects.readonly%20https%3A%2F%2Fwww.googleapis.com%2Fauth%2Ffirebase%20https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fcloud-platform&response_type=code&state=894290115&redirect_uri=http%3A%2F%2Flocalhost%3A9005
+[info] 
+[info] Waiting for authentication...
+[debug] [2025-12-25T03:12:08.876Z] >>> [apiv2][query] POST https://accounts.google.com/o/oauth2/token [none]
+[debug] [2025-12-25T03:12:08.876Z] >>> [apiv2][body] POST https://accounts.google.com/o/oauth2/token [omitted]
