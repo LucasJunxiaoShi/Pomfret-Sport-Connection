@@ -119,6 +119,10 @@ async function signInWithGoogle() {
     const credential = result.credential;
     if (credential && credential.accessToken) {
       try {
+        if (!firebase.functions) {
+          console.warn('Firebase Functions not available. Tokens cannot be stored.');
+          return profileName;
+        }
         const functions = firebase.functions();
         const storeTokens = functions.httpsCallable('storeUserTokens');
         const tokenResult = await storeTokens({
@@ -179,6 +183,9 @@ async function addEventToGoogleCalendarForAllParticipants(event, sport, particip
     console.log('Attempting to create calendar events for participants:', participants);
     
     // Call Cloud Function to automatically create calendar events for all participants
+    if (!firebase.functions) {
+      throw new Error('Firebase Functions not available. Make sure firebase-functions-compat.js is loaded.');
+    }
     const functions = firebase.functions();
     const createCalendarEvents = functions.httpsCallable('createCalendarEvents');
     
@@ -210,13 +217,7 @@ async function addEventToGoogleCalendarForAllParticipants(event, sport, particip
     // Check if it's a functions not deployed error
     if (e.code === 'functions/not-found' || e.message?.includes('not found')) {
       console.error('⚠️ Cloud Functions not deployed! Please deploy functions first: firebase deploy --only functions');
-      window.alert(
-        'Calendar functions not available.\n\n' +
-        'Please deploy Firebase Cloud Functions first:\n' +
-        '1. cd functions\n' +
-        '2. npm install\n' +
-        '3. firebase deploy --only functions'
-      );
+      console.error('Calendar features will not work until Cloud Functions are deployed.');
     }
     
     return {};
@@ -247,6 +248,10 @@ async function updateCalendarEventsForAllParticipants(event, sport, calendarEven
       timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
     };
 
+    if (!firebase.functions) {
+      console.error('Firebase Functions not available');
+      return false;
+    }
     const functions = firebase.functions();
     const updateCalendarEvents = functions.httpsCallable('updateCalendarEvents');
     
@@ -269,6 +274,10 @@ async function deleteCalendarEventsForAllParticipants(calendarEventIds) {
       return false;
     }
 
+    if (!firebase.functions) {
+      console.error('Firebase Functions not available');
+      return false;
+    }
     const functions = firebase.functions();
     const deleteCalendarEvents = functions.httpsCallable('deleteCalendarEvents');
     
@@ -288,6 +297,10 @@ async function deleteCalendarEventForUser(userName, calendarEventId) {
   try {
     if (!calendarEventId) return false;
 
+    if (!firebase.functions) {
+      console.error('Firebase Functions not available');
+      return false;
+    }
     const functions = firebase.functions();
     const deleteCalendarEvents = functions.httpsCallable('deleteCalendarEvents');
     
@@ -369,31 +382,22 @@ async function checkAndAddToCalendar(prevEvents, updatedEvents, sport, userName,
                   console.warn(`⚠️ Calendar events created for ${successCount}/${totalCount} participants`);
                   console.warn('Some participants may need to sign in first to enable calendar features.');
                   
-                  // Show alert to user
+                  // Log failed participants
                   const failedParticipants = allParticipants.filter(p => {
                     const pLower = (p || '').trim().toLowerCase();
                     return calendarEventIds[pLower] === null;
                   });
                   
                   if (failedParticipants.length > 0) {
-                    window.alert(
-                      `Calendar Event Status\n\n` +
-                      `✅ Created for: ${successCount} participant(s)\n` +
-                      `❌ Failed for: ${failedParticipants.join(', ')}\n\n` +
-                      `Note: Participants who haven't signed in yet need to sign in first to enable automatic calendar events.`
-                    );
+                    console.warn(`Failed to create calendar events for: ${failedParticipants.join(', ')}`);
+                    console.warn('These participants may need to sign in first to enable calendar features.');
                   }
                 } else {
                   console.error('❌ Failed to create calendar events for any participants');
-                  window.alert(
-                    `⚠️ Calendar Events Not Created\n\n` +
-                    `Unable to automatically add events to participants' calendars.\n\n` +
-                    `Possible reasons:\n` +
-                    `• Cloud Functions not deployed\n` +
-                    `• Participants haven't signed in yet\n` +
-                    `• Google Calendar API error\n\n` +
-                    `Please check the browser console for details.`
-                  );
+                  console.error('Possible reasons:');
+                  console.error('• Cloud Functions not deployed');
+                  console.error('• Participants haven\'t signed in yet');
+                  console.error('• Google Calendar API error');
                 }
               }
             } else {
@@ -402,18 +406,15 @@ async function checkAndAddToCalendar(prevEvents, updatedEvents, sport, userName,
               console.warn('2. Participants have not signed in yet (no tokens stored)');
               console.warn('3. There was an error creating the events');
               
-              // Show alert if current user is involved
+              // Log warning if current user is involved
               const userLower = (userName || '').trim().toLowerCase();
               const isInvolved = allParticipants.some(p => (p || '').trim().toLowerCase() === userLower);
               if (isInvolved) {
-                window.alert(
-                  `⚠️ Calendar Events Not Created\n\n` +
-                  `The event was confirmed but calendar events could not be automatically created.\n\n` +
-                  `Please ensure:\n` +
-                  `1. Firebase Cloud Functions are deployed\n` +
-                  `2. All participants have signed in at least once\n` +
-                  `3. Check browser console for error details`
-                );
+                console.warn('⚠️ Calendar events could not be automatically created');
+                console.warn('Please ensure:');
+                console.warn('1. Firebase Cloud Functions are deployed');
+                console.warn('2. All participants have signed in at least once');
+                console.warn('3. Check browser console for error details');
               }
             }
           } catch (e) {

@@ -177,11 +177,20 @@ exports.createCalendarEvents = functions.https.onCall(async (data, context) => {
     try {
       const calendarEventId = await createCalendarEventForUser(participant, eventData);
       results[participant.toLowerCase()] = calendarEventId;
+      console.log(`Successfully created calendar event for ${participant}: ${calendarEventId}`);
     } catch (error) {
-      console.error(`Failed to create calendar event for ${participant}:`, error);
+      console.error(`Failed to create calendar event for ${participant}:`, error.message);
+      // Check if it's a token issue
+      if (error.message?.includes('not found') || error.message?.includes('No tokens')) {
+        console.warn(`User ${participant} needs to sign in first to store Google Calendar tokens`);
+      }
       results[participant.toLowerCase()] = null;
     }
   }
+  
+  const successCount = Object.values(results).filter(id => id !== null).length;
+  const failCount = Object.values(results).filter(id => id === null).length;
+  console.log(`Calendar events created: ${successCount} successful, ${failCount} failed`);
   
   return { calendarEventIds: results };
 });
