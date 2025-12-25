@@ -121,16 +121,25 @@ async function signInWithGoogle() {
       try {
         const functions = firebase.functions();
         const storeTokens = functions.httpsCallable('storeUserTokens');
-        await storeTokens({
+        const tokenResult = await storeTokens({
           userName: profileName,
           accessToken: credential.accessToken,
           refreshToken: credential.refreshToken || null,
           expiryDate: credential.expirationTime || null,
         });
+        console.log('Tokens stored successfully for:', profileName, tokenResult.data);
       } catch (e) {
         console.error('Error storing tokens (calendar may not work):', e);
+        console.error('Error details:', e.message, e.code);
+        
+        // Check if functions are not deployed
+        if (e.code === 'functions/not-found' || e.message?.includes('not found')) {
+          console.warn('⚠️ Cloud Functions not deployed. Calendar features will not work until functions are deployed.');
+        }
         // Continue even if token storage fails
       }
+    } else {
+      console.warn('No access token available from Google sign-in. Calendar features may not work.');
     }
 
     return profileName;
@@ -145,6 +154,7 @@ async function signInWithGoogle() {
 async function addEventToGoogleCalendarForAllParticipants(event, sport, participants) {
   try {
     if (!participants || participants.length === 0) {
+      console.log('No participants to add to calendar');
       return {};
     }
 
@@ -166,6 +176,8 @@ async function addEventToGoogleCalendarForAllParticipants(event, sport, particip
       timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
     };
 
+    console.log('Attempting to create calendar events for participants:', participants);
+    
     // Call Cloud Function to automatically create calendar events for all participants
     const functions = firebase.functions();
     const createCalendarEvents = functions.httpsCallable('createCalendarEvents');
@@ -175,9 +187,38 @@ async function addEventToGoogleCalendarForAllParticipants(event, sport, particip
       participants,
     });
 
-    return result.data.calendarEventIds || {};
+    console.log('Calendar events creation result:', result.data);
+    const calendarEventIds = result.data.calendarEventIds || {};
+    
+    // Log which participants got calendar events created
+    const successful = Object.entries(calendarEventIds).filter(([_, id]) => id !== null);
+    const failed = Object.entries(calendarEventIds).filter(([_, id]) => id === null);
+    
+    if (successful.length > 0) {
+      console.log(`Successfully created calendar events for: ${successful.map(([name]) => name).join(', ')}`);
+    }
+    if (failed.length > 0) {
+      console.warn(`Failed to create calendar events for: ${failed.map(([name]) => name).join(', ')}`);
+      console.warn('These participants may need to sign in first to store their Google Calendar tokens.');
+    }
+
+    return calendarEventIds;
   } catch (e) {
-    console.error('Error automatically adding events to Google Calendar', e);
+    console.error('Error automatically adding events to Google Calendar:', e);
+    console.error('Error details:', e.message, e.code, e.details);
+    
+    // Check if it's a functions not deployed error
+    if (e.code === 'functions/not-found' || e.message?.includes('not found')) {
+      console.error('⚠️ Cloud Functions not deployed! Please deploy functions first: firebase deploy --only functions');
+      window.alert(
+        'Calendar functions not available.\n\n' +
+        'Please deploy Firebase Cloud Functions first:\n' +
+        '1. cd functions\n' +
+        '2. npm install\n' +
+        '3. firebase deploy --only functions'
+      );
+    }
+    
     return {};
   }
 }
@@ -300,17 +341,84 @@ async function checkAndAddToCalendar(prevEvents, updatedEvents, sport, userName,
               ...(updatedEvent.participants || [])
             ].filter(Boolean);
 
+            console.log(`Event "${updatedEvent.id}" just became confirmed. Creating calendar events for:`, allParticipants);
+
             const calendarEventIds = await addEventToGoogleCalendarForAllParticipants(
               updatedEvent,
               sportData,
               allParticipants
             );
 
+            console.log('Calendar event IDs returned:', calendarEventIds);
+
             if (Object.keys(calendarEventIds).length > 0 && onUpdateEvent) {
               onUpdateEvent(sportId, updatedEvent.id, { calendarEventIds });
+              
+              // Show success/failure message to current user
+              const userLower = (userName || '').trim().toLowerCase();
+              const isInvolved = allParticipants.some(p => (p || '').trim().toLowerCase() === userLower);
+              
+              if (isInvolved) {
+                const successCount = Object.values(calendarEventIds).filter(id => id !== null).length;
+                const failCount = Object.values(calendarEventIds).filter(id => id === null).length;
+                const totalCount = allParticipants.length;
+                
+                if (successCount === totalCount) {
+                  console.log(`✅ Calendar events successfully created for all ${totalCount} participant(s)`);
+                } else if (successCount > 0) {
+                  console.warn(`⚠️ Calendar events created for ${successCount}/${totalCount} participants`);
+                  console.warn('Some participants may need to sign in first to enable calendar features.');
+                  
+                  // Show alert to user
+                  const failedParticipants = allParticipants.filter(p => {
+                    const pLower = (p || '').trim().toLowerCase();
+                    return calendarEventIds[pLower] === null;
+                  });
+                  
+                  if (failedParticipants.length > 0) {
+                    window.alert(
+                      `Calendar Event Status\n\n` +
+                      `✅ Created for: ${successCount} participant(s)\n` +
+                      `❌ Failed for: ${failedParticipants.join(', ')}\n\n` +
+                      `Note: Participants who haven't signed in yet need to sign in first to enable automatic calendar events.`
+                    );
+                  }
+                } else {
+                  console.error('❌ Failed to create calendar events for any participants');
+                  window.alert(
+                    `⚠️ Calendar Events Not Created\n\n` +
+                    `Unable to automatically add events to participants' calendars.\n\n` +
+                    `Possible reasons:\n` +
+                    `• Cloud Functions not deployed\n` +
+                    `• Participants haven't signed in yet\n` +
+                    `• Google Calendar API error\n\n` +
+                    `Please check the browser console for details.`
+                  );
+                }
+              }
+            } else {
+              console.warn('No calendar event IDs returned. This might mean:');
+              console.warn('1. Cloud Functions are not deployed');
+              console.warn('2. Participants have not signed in yet (no tokens stored)');
+              console.warn('3. There was an error creating the events');
+              
+              // Show alert if current user is involved
+              const userLower = (userName || '').trim().toLowerCase();
+              const isInvolved = allParticipants.some(p => (p || '').trim().toLowerCase() === userLower);
+              if (isInvolved) {
+                window.alert(
+                  `⚠️ Calendar Events Not Created\n\n` +
+                  `The event was confirmed but calendar events could not be automatically created.\n\n` +
+                  `Please ensure:\n` +
+                  `1. Firebase Cloud Functions are deployed\n` +
+                  `2. All participants have signed in at least once\n` +
+                  `3. Check browser console for error details`
+                );
+              }
             }
           } catch (e) {
             console.error('Error creating calendar events', e);
+            console.error('Full error:', e.message, e.code, e.details);
           }
         }
         // If event was confirmed but is now below minimum, delete all calendar events
