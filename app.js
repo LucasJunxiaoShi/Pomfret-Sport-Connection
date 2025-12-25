@@ -101,9 +101,6 @@ async function signInWithGoogle() {
   try {
     const auth = firebase.auth();
     const provider = new firebase.auth.GoogleAuthProvider();
-    // Request calendar scope for adding events
-    provider.addScope('https://www.googleapis.com/auth/calendar');
-    provider.addScope('https://www.googleapis.com/auth/calendar.events');
     const result = await auth.signInWithPopup(provider);
     const user = result.user;
     if (!user) {
@@ -115,36 +112,6 @@ async function signInWithGoogle() {
       throw new Error('Google account has no display name');
     }
 
-    // Store OAuth tokens for server-side calendar management
-    const credential = result.credential;
-    if (credential && credential.accessToken) {
-      try {
-        if (!firebase.functions) {
-          console.warn('Firebase Functions not available. Tokens cannot be stored.');
-          return profileName;
-        }
-        const functions = firebase.functions();
-        const storeTokens = functions.httpsCallable('storeUserTokens');
-        const tokenResult = await storeTokens({
-          userName: profileName,
-          accessToken: credential.accessToken,
-          refreshToken: credential.refreshToken || null,
-          expiryDate: credential.expirationTime || null,
-        });
-        console.log('Tokens stored successfully for:', profileName, tokenResult.data);
-      } catch (e) {
-        console.error('Error storing tokens (calendar may not work):', e);
-        console.error('Error details:', e.message, e.code);
-        
-        // Check if functions are not deployed
-        if (e.code === 'functions/not-found' || e.message?.includes('not found')) {
-          console.warn('⚠️ Cloud Functions not deployed. Calendar features will not work until functions are deployed.');
-        }
-        // Continue even if token storage fails
-      }
-    } else {
-      console.warn('No access token available from Google sign-in. Calendar features may not work.');
-    }
 
     return profileName;
   } catch (e) {
@@ -154,385 +121,6 @@ async function signInWithGoogle() {
 }
 
 
-// Google Calendar integration - automatically adds events via Cloud Functions
-async function addEventToGoogleCalendarForAllParticipants(event, sport, participants) {
-  try {
-    if (!participants || participants.length === 0) {
-      console.log('No participants to add to calendar');
-      return {};
-    }
-
-    // Format the event date - use 30 minutes duration
-    const eventDate = new Date(event.timeRaw);
-    const eventEndDate = new Date(eventDate);
-    eventEndDate.setMinutes(eventEndDate.getMinutes() + 30);
-
-    const participantsList = event.participants && event.participants.length > 0
-      ? `\nParticipants: ${event.participants.join(', ')}`
-      : '';
-
-    const eventData = {
-      summary: `${sport.name} - ${event.hostName}`,
-      description: `Pomfret Sports Connect - ${sport.name} game\nHost: ${event.hostName}\nLocation: ${event.location}${participantsList}`,
-      location: event.location,
-      startDateTime: eventDate.toISOString(),
-      endDateTime: eventEndDate.toISOString(),
-      timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-    };
-
-    console.log('Attempting to create calendar events for participants:', participants);
-    
-    // Call Cloud Function to automatically create calendar events for all participants
-    if (!firebase.functions) {
-      throw new Error('Firebase Functions not available. Make sure firebase-functions-compat.js is loaded.');
-    }
-    const functions = firebase.functions();
-    const createCalendarEvents = functions.httpsCallable('createCalendarEvents');
-    
-    const result = await createCalendarEvents({
-      eventData,
-      participants,
-    });
-
-    console.log('Calendar events creation result:', result.data);
-    const calendarEventIds = result.data.calendarEventIds || {};
-    
-    // Log which participants got calendar events created
-    const successful = Object.entries(calendarEventIds).filter(([_, id]) => id !== null);
-    const failed = Object.entries(calendarEventIds).filter(([_, id]) => id === null);
-    
-    if (successful.length > 0) {
-      console.log(`Successfully created calendar events for: ${successful.map(([name]) => name).join(', ')}`);
-    }
-    if (failed.length > 0) {
-      console.warn(`Failed to create calendar events for: ${failed.map(([name]) => name).join(', ')}`);
-      console.warn('These participants may need to sign in first to store their Google Calendar tokens.');
-    }
-
-    return calendarEventIds;
-  } catch (e) {
-    console.error('Error automatically adding events to Google Calendar:', e);
-    console.error('Error details:', e.message, e.code, e.details);
-    
-    // Check if it's a functions not deployed error
-    if (e.code === 'functions/not-found' || e.message?.includes('not found')) {
-      console.error('⚠️ Cloud Functions not deployed! Please deploy functions first: firebase deploy --only functions');
-      console.error('Calendar features will not work until Cloud Functions are deployed.');
-    }
-    
-    return {};
-  }
-}
-
-// Update calendar events for all participants
-async function updateCalendarEventsForAllParticipants(event, sport, calendarEventIds) {
-  try {
-    if (!calendarEventIds || Object.keys(calendarEventIds).length === 0) {
-      return false;
-    }
-
-    const eventDate = new Date(event.timeRaw);
-    const eventEndDate = new Date(eventDate);
-    eventEndDate.setMinutes(eventEndDate.getMinutes() + 30);
-
-    const participantsList = event.participants && event.participants.length > 0
-      ? `\nParticipants: ${event.participants.join(', ')}`
-      : '';
-
-    const eventData = {
-      summary: `${sport.name} - ${event.hostName}`,
-      description: `Pomfret Sports Connect - ${sport.name} game\nHost: ${event.hostName}\nLocation: ${event.location}${participantsList}`,
-      location: event.location,
-      startDateTime: eventDate.toISOString(),
-      endDateTime: eventEndDate.toISOString(),
-      timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-    };
-
-    if (!firebase.functions) {
-      console.error('Firebase Functions not available');
-      return false;
-    }
-    const functions = firebase.functions();
-    const updateCalendarEvents = functions.httpsCallable('updateCalendarEvents');
-    
-    await updateCalendarEvents({
-      eventData,
-      calendarEventIds,
-    });
-
-    return true;
-  } catch (e) {
-    console.error('Error updating calendar events', e);
-    return false;
-  }
-}
-
-// Delete calendar events for all participants
-async function deleteCalendarEventsForAllParticipants(calendarEventIds) {
-  try {
-    if (!calendarEventIds || Object.keys(calendarEventIds).length === 0) {
-      return false;
-    }
-
-    if (!firebase.functions) {
-      console.error('Firebase Functions not available');
-      return false;
-    }
-    const functions = firebase.functions();
-    const deleteCalendarEvents = functions.httpsCallable('deleteCalendarEvents');
-    
-    await deleteCalendarEvents({
-      calendarEventIds,
-    });
-
-    return true;
-  } catch (e) {
-    console.error('Error deleting calendar events', e);
-    return false;
-  }
-}
-
-// Delete calendar event for a single user
-async function deleteCalendarEventForUser(userName, calendarEventId) {
-  try {
-    if (!calendarEventId) return false;
-
-    if (!firebase.functions) {
-      console.error('Firebase Functions not available');
-      return false;
-    }
-    const functions = firebase.functions();
-    const deleteCalendarEvents = functions.httpsCallable('deleteCalendarEvents');
-    
-    await deleteCalendarEvents({
-      calendarEventIds: { [userName.toLowerCase()]: calendarEventId },
-    });
-
-    return true;
-  } catch (e) {
-    console.error('Error deleting calendar event for user', e);
-    return false;
-  }
-}
-
-// Check if event just became confirmed and automatically add to all participants' calendars
-async function checkAndAddToCalendar(prevEvents, updatedEvents, sport, userName, onUpdateEvent) {
-  try {
-    if (!userName) return;
-    
-    const sportIdsToCheck = sport 
-      ? [sport.id] 
-      : Object.keys(updatedEvents);
-
-    for (const sportId of sportIdsToCheck) {
-      const sportData = sport || SPORTS.find((s) => s.id === sportId);
-      if (!sportData) continue;
-
-      const prevSportEvents = prevEvents[sportId] || [];
-      const updatedSportEvents = updatedEvents[sportId] || [];
-
-      for (const updatedEvent of updatedSportEvents) {
-        if (!updatedEvent || !updatedEvent.timeRaw) continue;
-
-        const prevEvent = prevSportEvents.find((e) => e.id === updatedEvent.id);
-        const wasConfirmed = prevEvent
-          ? (prevEvent.participants?.length || 0) >= (prevEvent.minPlayers || 1)
-          : false;
-        const isNowConfirmed =
-          (updatedEvent.participants?.length || 0) >= (updatedEvent.minPlayers || 1);
-
-        // Check if participants changed
-        const prevParticipants = prevEvent?.participants || [];
-        const currentParticipants = updatedEvent.participants || [];
-        const participantsChanged = JSON.stringify(prevParticipants.sort()) !== JSON.stringify(currentParticipants.sort());
-
-        // If event just became confirmed, automatically create calendar events for ALL participants
-        if (!wasConfirmed && isNowConfirmed) {
-          try {
-            const allParticipants = [
-              updatedEvent.hostName,
-              ...(updatedEvent.participants || [])
-            ].filter(Boolean);
-
-            console.log(`Event "${updatedEvent.id}" just became confirmed. Creating calendar events for:`, allParticipants);
-
-            const calendarEventIds = await addEventToGoogleCalendarForAllParticipants(
-              updatedEvent,
-              sportData,
-              allParticipants
-            );
-
-            console.log('Calendar event IDs returned:', calendarEventIds);
-
-            if (Object.keys(calendarEventIds).length > 0 && onUpdateEvent) {
-              onUpdateEvent(sportId, updatedEvent.id, { calendarEventIds });
-              
-              // Show success/failure message to current user
-              const userLower = (userName || '').trim().toLowerCase();
-              const isInvolved = allParticipants.some(p => (p || '').trim().toLowerCase() === userLower);
-              
-              if (isInvolved) {
-                const successCount = Object.values(calendarEventIds).filter(id => id !== null).length;
-                const failCount = Object.values(calendarEventIds).filter(id => id === null).length;
-                const totalCount = allParticipants.length;
-                
-                if (successCount === totalCount) {
-                  console.log(`✅ Calendar events successfully created for all ${totalCount} participant(s)`);
-                } else if (successCount > 0) {
-                  console.warn(`⚠️ Calendar events created for ${successCount}/${totalCount} participants`);
-                  console.warn('Some participants may need to sign in first to enable calendar features.');
-                  
-                  // Log failed participants
-                  const failedParticipants = allParticipants.filter(p => {
-                    const pLower = (p || '').trim().toLowerCase();
-                    return calendarEventIds[pLower] === null;
-                  });
-                  
-                  if (failedParticipants.length > 0) {
-                    console.warn(`Failed to create calendar events for: ${failedParticipants.join(', ')}`);
-                    console.warn('These participants may need to sign in first to enable calendar features.');
-                  }
-                } else {
-                  console.error('❌ Failed to create calendar events for any participants');
-                  console.error('Possible reasons:');
-                  console.error('• Cloud Functions not deployed');
-                  console.error('• Participants haven\'t signed in yet');
-                  console.error('• Google Calendar API error');
-                }
-              }
-            } else {
-              console.warn('No calendar event IDs returned. This might mean:');
-              console.warn('1. Cloud Functions are not deployed');
-              console.warn('2. Participants have not signed in yet (no tokens stored)');
-              console.warn('3. There was an error creating the events');
-              
-              // Log warning if current user is involved
-              const userLower = (userName || '').trim().toLowerCase();
-              const isInvolved = allParticipants.some(p => (p || '').trim().toLowerCase() === userLower);
-              if (isInvolved) {
-                console.warn('⚠️ Calendar events could not be automatically created');
-                console.warn('Please ensure:');
-                console.warn('1. Firebase Cloud Functions are deployed');
-                console.warn('2. All participants have signed in at least once');
-                console.warn('3. Check browser console for error details');
-              }
-            }
-          } catch (e) {
-            console.error('Error creating calendar events', e);
-            console.error('Full error:', e.message, e.code, e.details);
-          }
-        }
-        // If event was confirmed but is now below minimum, delete all calendar events
-        else if (wasConfirmed && !isNowConfirmed && updatedEvent.calendarEventIds) {
-          try {
-            const calendarEventIds = updatedEvent.calendarEventIds || {};
-            if (Object.keys(calendarEventIds).length > 0) {
-              // Try to delete calendar events (may not work for all users due to client limitations)
-              await deleteCalendarEventsForAllParticipants(calendarEventIds);
-              
-              // Show popup to notify users to manually cancel in Google Calendar
-              const userLower = (userName || '').trim().toLowerCase();
-              const hostNameLower = (updatedEvent.hostName || '').trim().toLowerCase();
-              const isHost = userLower === hostNameLower;
-              const isParticipant = (updatedEvent.participants || []).some(
-                (p) => (p || '').trim().toLowerCase() === userLower
-              );
-              
-              // Show notification to current user if they're involved
-              if ((isHost || isParticipant) && calendarEventIds[userLower]) {
-                const sportName = sportData.name;
-                const eventTime = updatedEvent.timeLabel || new Date(updatedEvent.timeRaw).toLocaleString();
-                window.alert(
-                  `⚠️ Event Unconfirmed\n\n` +
-                  `The "${sportName}" event on ${eventTime} is no longer confirmed (below minimum participants).\n\n` +
-                  `Please manually cancel this event in your Google Calendar if it's still there.\n\n` +
-                  `Event: ${sportName} - ${updatedEvent.hostName}\n` +
-                  `Location: ${updatedEvent.location}`
-                );
-              }
-              
-              // Clear calendar event IDs from the event
-              if (onUpdateEvent) {
-                onUpdateEvent(sportId, updatedEvent.id, { calendarEventIds: {} });
-              }
-            }
-          } catch (e) {
-            console.error('Error deleting calendar events when event became unconfirmed', e);
-          }
-        }
-        // If participants changed, update existing calendar events and handle users who left
-        else if (isNowConfirmed && participantsChanged && updatedEvent.calendarEventIds) {
-          const calendarEventIds = updatedEvent.calendarEventIds || {};
-          const newParticipants = currentParticipants.filter(
-            (p) => !prevParticipants.includes(p)
-          );
-          const leftParticipants = prevParticipants.filter(
-            (p) => !currentParticipants.includes(p)
-          );
-          
-          try {
-            // Delete calendar events for users who left
-            if (leftParticipants.length > 0) {
-              const calendarEventIdsToDelete = {};
-              leftParticipants.forEach((participant) => {
-                const participantLower = (participant || '').trim().toLowerCase();
-                if (calendarEventIds[participantLower]) {
-                  calendarEventIdsToDelete[participantLower] = calendarEventIds[participantLower];
-                }
-              });
-              
-              if (Object.keys(calendarEventIdsToDelete).length > 0) {
-                await deleteCalendarEventsForAllParticipants(calendarEventIdsToDelete);
-                
-                // Remove calendar event IDs for users who left
-                const cleanedCalendarEventIds = { ...calendarEventIds };
-                leftParticipants.forEach((participant) => {
-                  const participantLower = (participant || '').trim().toLowerCase();
-                  delete cleanedCalendarEventIds[participantLower];
-                });
-                
-                if (onUpdateEvent) {
-                  onUpdateEvent(sportId, updatedEvent.id, { calendarEventIds: cleanedCalendarEventIds });
-                }
-              }
-            }
-            
-            // Update existing events with new participant list
-            const currentCalendarEventIds = updatedEvent.calendarEventIds || {};
-            // Remove IDs for users who left before updating
-            const calendarEventIdsToUpdate = { ...currentCalendarEventIds };
-            leftParticipants.forEach((participant) => {
-              const participantLower = (participant || '').trim().toLowerCase();
-              delete calendarEventIdsToUpdate[participantLower];
-            });
-            
-            if (Object.keys(calendarEventIdsToUpdate).length > 0) {
-              await updateCalendarEventsForAllParticipants(updatedEvent, sportData, calendarEventIdsToUpdate);
-            }
-            
-            // Create events for new participants
-            if (newParticipants.length > 0) {
-              const newCalendarEventIds = await addEventToGoogleCalendarForAllParticipants(
-                updatedEvent,
-                sportData,
-                newParticipants
-              );
-              
-              if (Object.keys(newCalendarEventIds).length > 0 && onUpdateEvent) {
-                const mergedIds = { ...calendarEventIdsToUpdate, ...newCalendarEventIds };
-                onUpdateEvent(sportId, updatedEvent.id, { calendarEventIds: mergedIds });
-              }
-            }
-          } catch (e) {
-            console.error('Error updating calendar events', e);
-          }
-        }
-      }
-    }
-  } catch (e) {
-    console.error('Error checking and adding to calendar', e);
-  }
-}
 
 // User profile helpers (using name as the unique ID)
 function getLocalUser() {
@@ -797,22 +385,6 @@ function SportPage({ sportId, eventsBySport, onBack, onUpdateEvents, userName })
     setShowModal(false);
   };
 
-  // Callback to update event with calendar event IDs
-  const updateEventWithCalendarIds = (eventId, calendarUpdate) => {
-    const updatedSportEvents = events.map((e) => {
-      if (e.id !== eventId) return e;
-      return {
-        ...e,
-        ...calendarUpdate,
-        calendarEventIds: {
-          ...(e.calendarEventIds || {}),
-          ...(calendarUpdate.calendarEventIds || {}),
-        },
-      };
-    });
-    const updated = { ...eventsBySport, [sportId]: updatedSportEvents };
-    onUpdateEvents(updated);
-  };
 
   const handleJoin = (eventId) => {
     const name = (currentUserName || '').trim();
@@ -847,54 +419,22 @@ function SportPage({ sportId, eventsBySport, onBack, onUpdateEvents, userName })
     });
 
     const updated = { ...eventsBySport, [sportId]: updatedSportEvents };
-    // Check if this event just became confirmed and automatically add to calendars
-    checkAndAddToCalendar(prevEvents, updated, sport, name, (sId, eId, calendarUpdate) => {
-      if (sId === sportId && eId === eventId) {
-        updateEventWithCalendarIds(eventId, calendarUpdate);
-      }
-    });
     onUpdateEvents(updated);
   };
 
-  const handleDelete = async (eventId) => {
-    // Find the event to be deleted
-    const eventToDelete = events.find((e) => e.id === eventId);
-    
-    // Automatically delete calendar events for all participants
-    if (eventToDelete && eventToDelete.calendarEventIds) {
-      try {
-        await deleteCalendarEventsForAllParticipants(eventToDelete.calendarEventIds);
-      } catch (e) {
-        console.error('Error deleting calendar events', e);
-      }
-    }
-
+  const handleDelete = (eventId) => {
     const updatedSportEvents = events.filter((e) => e.id !== eventId);
     const updated = { ...eventsBySport, [sportId]: updatedSportEvents };
     onUpdateEvents(updated);
   };
 
-  const handleCancelJoin = async (eventId) => {
+  const handleCancelJoin = (eventId) => {
     const name = (currentUserName || '').trim();
     if (!name) {
       window.alert('Enter your name in the box at the top first.');
       return;
     }
 
-    // Find the event to get calendar event ID for this user
-    const eventToLeave = events.find((e) => e.id === eventId);
-    const userLower = name.trim().toLowerCase();
-    
-    // Delete calendar event for the user who is leaving
-    if (eventToLeave && eventToLeave.calendarEventIds && eventToLeave.calendarEventIds[userLower]) {
-      try {
-        await deleteCalendarEventForUser(name, eventToLeave.calendarEventIds[userLower]);
-      } catch (e) {
-        console.error('Error deleting calendar event for leaving user', e);
-      }
-    }
-
-    const prevEvents = { ...eventsBySport };
     const updatedSportEvents = events.map((e) => {
       if (e.id !== eventId) return e;
 
@@ -903,38 +443,13 @@ function SportPage({ sportId, eventsBySport, onBack, onUpdateEvents, userName })
         (p) => (p || '').trim().toLowerCase() !== name.trim().toLowerCase()
       );
 
-      // Remove calendar event ID for the user who left
-      const updatedCalendarEventIds = { ...(e.calendarEventIds || {}) };
-      delete updatedCalendarEventIds[userLower];
-
       return {
         ...e,
         participants: nextParticipants,
-        calendarEventIds: updatedCalendarEventIds,
       };
     });
 
     const updated = { ...eventsBySport, [sportId]: updatedSportEvents };
-    
-    // Check if event dropped below minimum and delete all calendar events if so
-    checkAndAddToCalendar(prevEvents, updated, sport, name, (sId, eId, calendarUpdate) => {
-      if (sId === sportId && eId === eventId) {
-        const updatedSportEventsWithCalendar = updatedSportEvents.map((e) => {
-          if (e.id !== eventId) return e;
-          return {
-            ...e,
-            ...calendarUpdate,
-            calendarEventIds: {
-              ...(e.calendarEventIds || {}),
-              ...(calendarUpdate.calendarEventIds || {}),
-            },
-          };
-        });
-        const newUpdated = { ...updated, [sportId]: updatedSportEventsWithCalendar };
-        onUpdateEvents(newUpdated);
-      }
-    });
-    
     onUpdateEvents(updated);
   };
 
@@ -1397,36 +912,6 @@ function App() {
   // Use a ref to track if we've already checked this update
   const prevEventsRef = React.useRef(null);
   
-  useEffect(() => {
-    if (isLoading || !userName) {
-      prevEventsRef.current = eventsBySport;
-      return;
-    }
-    
-    // Only check if we have previous state to compare and it's different
-    if (prevEventsRef.current && prevEventsRef.current !== eventsBySport) {
-      const updateEventWithCalendarIds = (sportId, eventId, calendarUpdate) => {
-        setEventsBySport((current) => {
-          const updatedSportEvents = ((current[sportId] || [])).map((e) => {
-            if (e.id !== eventId) return e;
-            return {
-              ...e,
-              ...calendarUpdate,
-              calendarEventIds: {
-                ...(e.calendarEventIds || {}),
-                ...(calendarUpdate.calendarEventIds || {}),
-              },
-            };
-          });
-          return { ...current, [sportId]: updatedSportEvents };
-        });
-      };
-      
-      checkAndAddToCalendar(prevEventsRef.current, eventsBySport, null, userName, updateEventWithCalendarIds);
-    }
-    
-    prevEventsRef.current = eventsBySport;
-  }, [eventsBySport, isLoading, userName]);
 
   useEffect(() => {
     if (isLoading) return;
@@ -1445,25 +930,6 @@ function App() {
   }, []);
 
   const handleUpdateEvents = (updated) => {
-    // Callback to update event with calendar event IDs
-    const updateEventWithCalendarIds = (sportId, eventId, calendarUpdate) => {
-      const updatedSportEvents = (updated[sportId] || []).map((e) => {
-        if (e.id !== eventId) return e;
-        return {
-          ...e,
-          ...calendarUpdate,
-          calendarEventIds: {
-            ...(e.calendarEventIds || {}),
-            ...(calendarUpdate.calendarEventIds || {}),
-          },
-        };
-      });
-      const newUpdated = { ...updated, [sportId]: updatedSportEvents };
-      setEventsBySport(newUpdated);
-    };
-
-    // Check if any events just became confirmed and automatically add to calendars
-    checkAndAddToCalendar(eventsBySport, updated, null, userName, updateEventWithCalendarIds);
     setEventsBySport(updated);
   };
 
