@@ -28,8 +28,8 @@ const SPORTS = [
   {
     id: 'pingpong',
     name: 'Ping Pong',
-    tagline: 'Fast paddles, quick reflexes, epic rallies.',
-    locationHint: 'Student Union or rec room',
+    tagline: 'Spinning serves, epic rallies.',
+    locationHint: 'OSU Ping Pong table',
   },
 ];
 
@@ -96,7 +96,7 @@ async function saveEventsToFirebase(eventsBySport) {
     console.error('Failed to save events to Firebase', e);
   }
 }
-
+//Google Sign-in errors display
 async function signInWithGoogle() {
   try {
     const auth = firebase.auth();
@@ -116,6 +116,112 @@ async function signInWithGoogle() {
   } catch (e) {
     console.error('Google sign-in failed', e);
     throw e;
+  }
+}
+
+// Google Calendar integration
+async function addEventToGoogleCalendar(event, sport, participantName) {
+  try {
+    // Format the event date
+    const eventDate = new Date(event.timeRaw);
+    const eventEndDate = new Date(eventDate);
+    eventEndDate.setHours(eventEndDate.getHours() + 1); // Default 1 hour duration
+
+    // Create Google Calendar link (most reliable method)
+    const calendarLink = createGoogleCalendarLink(event, sport, eventDate, eventEndDate);
+    
+    // Try to automatically open the calendar link
+    // This will prompt the user to add the event to their calendar
+    const shouldAdd = window.confirm(
+      `Event confirmed! Would you like to add "${sport.name} - ${event.hostName}" to your Google Calendar?`
+    );
+    
+    if (shouldAdd) {
+      window.open(calendarLink, '_blank');
+      return true;
+    }
+    
+    return false;
+  } catch (e) {
+    console.error('Error adding event to Google Calendar', e);
+    return false;
+  }
+}
+
+// Helper function to create Google Calendar link
+function createGoogleCalendarLink(event, sport, eventDate, eventEndDate) {
+  const formatDate = (date) => {
+    return date.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+  };
+
+  const participantsList = event.participants && event.participants.length > 0
+    ? `\nParticipants: ${event.participants.join(', ')}`
+    : '';
+
+  const params = new URLSearchParams({
+    action: 'TEMPLATE',
+    text: `${sport.name} - ${event.hostName}`,
+    dates: `${formatDate(eventDate)}/${formatDate(eventEndDate)}`,
+    details: `Pomfret Sports Connect - ${sport.name} game\nHost: ${event.hostName}\nLocation: ${event.location}${participantsList}`,
+    location: event.location,
+  });
+
+  return `https://calendar.google.com/calendar/render?${params.toString()}`;
+}
+
+// Check if event just became confirmed and add to calendar
+async function checkAndAddToCalendar(prevEvents, updatedEvents, sport, userName) {
+  try {
+    if (!userName) return; // Need user name to check if they're a participant
+    
+    // Get list of sport IDs to check (if sport is provided, only check that one)
+    const sportIdsToCheck = sport 
+      ? [sport.id] 
+      : Object.keys(updatedEvents);
+
+    // Compare events to see if any just became confirmed
+    sportIdsToCheck.forEach((sportId) => {
+      const sportData = sport || SPORTS.find((s) => s.id === sportId);
+      if (!sportData) return;
+
+      const prevSportEvents = prevEvents[sportId] || [];
+      const updatedSportEvents = updatedEvents[sportId] || [];
+
+      updatedSportEvents.forEach((updatedEvent) => {
+        if (!updatedEvent || !updatedEvent.timeRaw) return;
+
+        const prevEvent = prevSportEvents.find((e) => e.id === updatedEvent.id);
+        const wasConfirmed = prevEvent
+          ? (prevEvent.participants?.length || 0) >= (prevEvent.minPlayers || 1)
+          : false;
+        const isNowConfirmed =
+          (updatedEvent.participants?.length || 0) >= (updatedEvent.minPlayers || 1);
+
+        // If event just became confirmed and hasn't been added to calendar yet
+        if (!wasConfirmed && isNowConfirmed && !updatedEvent.calendarAdded) {
+          // Check if current user is a participant or host
+          const userLower = (userName || '').trim().toLowerCase();
+          const isParticipant = updatedEvent.participants?.some(
+            (p) => (p || '').trim().toLowerCase() === userLower
+          );
+          const isHost =
+            updatedEvent.hostName &&
+            (updatedEvent.hostName || '').trim().toLowerCase() === userLower;
+
+          if (isParticipant || isHost) {
+            // Add to calendar for this user
+            addEventToGoogleCalendar(updatedEvent, sportData, userName).then((success) => {
+              if (success) {
+                // Mark as added in the event (optional - could store in separate tracking)
+                console.log(`Event ${updatedEvent.id} added to calendar for ${userName}`);
+              }
+            });
+          }
+        }
+      });
+    });
+  } catch (e) {
+    console.error('Error checking and adding to calendar', e);
   }
 }
 
@@ -193,7 +299,7 @@ function AppShell({ children, userName, onSignOut }) {
       <footer className="app-footer">
         <div className="app-footer-inner">
           <span>Pomfret School · Student Sports Signup</span>
-          <span>Cardinal Red · Black · White</span>
+          <span>Pomfret Red · Black · White</span>
         </div>
       </footer>
     </div>
@@ -389,6 +495,7 @@ function SportPage({ sportId, eventsBySport, onBack, onUpdateEvents, userName })
       return;
     }
 
+    const prevEvents = { ...eventsBySport };
     const updatedSportEvents = events.map((e) => {
       if (e.id !== eventId) return e;
       // Do not allow the host to join their own session as a participant
@@ -414,6 +521,8 @@ function SportPage({ sportId, eventsBySport, onBack, onUpdateEvents, userName })
     });
 
     const updated = { ...eventsBySport, [sportId]: updatedSportEvents };
+    // Check if this event just became confirmed
+    checkAndAddToCalendar(prevEvents, updated, sport, name);
     onUpdateEvents(updated);
   };
 
@@ -903,6 +1012,24 @@ function App() {
     };
   }, []);
 
+  // Check for newly confirmed events when eventsBySport changes (e.g., from other users)
+  // Use a ref to track if we've already checked this update
+  const prevEventsRef = React.useRef(null);
+  
+  useEffect(() => {
+    if (isLoading || !userName) {
+      prevEventsRef.current = eventsBySport;
+      return;
+    }
+    
+    // Only check if we have previous state to compare and it's different
+    if (prevEventsRef.current && prevEventsRef.current !== eventsBySport) {
+      checkAndAddToCalendar(prevEventsRef.current, eventsBySport, null, userName);
+    }
+    
+    prevEventsRef.current = eventsBySport;
+  }, [eventsBySport, isLoading, userName]);
+
   useEffect(() => {
     if (isLoading) return;
     saveEventsToFirebase(eventsBySport);
@@ -920,6 +1047,8 @@ function App() {
   }, []);
 
   const handleUpdateEvents = (updated) => {
+    // Check if any events just became confirmed and add to calendar
+    checkAndAddToCalendar(eventsBySport, updated, null, userName);
     setEventsBySport(updated);
   };
 
