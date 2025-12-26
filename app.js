@@ -1024,15 +1024,19 @@ function App() {
         const isNowConfirmed =
           (currentEvent.participants?.length || 0) >= (currentEvent.minPlayers || 1);
 
+        const userLower = (userName || '').trim().toLowerCase();
+        const hostNameLower = (currentEvent.hostName || '').trim().toLowerCase();
+        const isHost = userLower === hostNameLower;
+        const isParticipant = (currentEvent.participants || []).some(
+          (p) => (p || '').trim().toLowerCase() === userLower
+        );
+        const wasParticipant = (prevEvent?.participants || []).some(
+          (p) => (p || '').trim().toLowerCase() === userLower
+        );
+        const isNewParticipant = isParticipant && !wasParticipant && !isHost;
+
         // If event just became confirmed, show popup for involved users
         if (!wasConfirmed && isNowConfirmed) {
-          const userLower = (userName || '').trim().toLowerCase();
-          const hostNameLower = (currentEvent.hostName || '').trim().toLowerCase();
-          const isHost = userLower === hostNameLower;
-          const isParticipant = (currentEvent.participants || []).some(
-            (p) => (p || '').trim().toLowerCase() === userLower
-          );
-
           // Show popup if user is host or participant
           if (isHost || isParticipant) {
             setConfirmationPopup({
@@ -1040,6 +1044,13 @@ function App() {
               sport: sport,
             });
           }
+        }
+        // If event is already confirmed and a new participant just joined, show popup to that new participant
+        else if (wasConfirmed && isNowConfirmed && isNewParticipant) {
+          setConfirmationPopup({
+            event: currentEvent,
+            sport: sport,
+          });
         }
         
         // If event was confirmed but is now below minimum, show delete popup
