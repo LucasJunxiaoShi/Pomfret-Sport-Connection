@@ -33,7 +33,7 @@ const SPORTS = [
   },
 ];
 
-// Firebase Firestore helpers
+// Firebase helpers
 // Requires firebase to be initialized globally in index.html
 // with firebase-app-compat and firebase-firestore-compat scripts.
 
@@ -370,7 +370,7 @@ function SportCard({ sport, onClick }) {
   );
 }
 
-function SportPage({ sportId, eventsBySport, onBack, onUpdateEvents, userName }) {
+function SportPage({ sportId, eventsBySport, onBack, onUpdateEvents, userName, onShowDeleteCalendarPopup }) {
   const sport = SPORTS.find((s) => s.id === sportId);
   const [showModal, setShowModal] = useState(false);
   const [currentUserName, setCurrentUserName] = useState(userName || '');
@@ -423,6 +423,24 @@ function SportPage({ sportId, eventsBySport, onBack, onUpdateEvents, userName })
   };
 
   const handleDelete = (eventId) => {
+    // Find the event being deleted to check if it was confirmed
+    const eventToDelete = events.find((e) => e.id === eventId);
+    const wasConfirmed = eventToDelete && 
+      (eventToDelete.participants?.length || 0) >= (eventToDelete.minPlayers || 1);
+    
+    // Show popup to host if event was confirmed
+    if (wasConfirmed && eventToDelete && onShowDeleteCalendarPopup) {
+      const name = (currentUserName || '').trim().toLowerCase();
+      const hostNameLower = (eventToDelete.hostName || '').trim().toLowerCase();
+      if (name === hostNameLower) {
+        // Pass event info to parent to show popup
+        onShowDeleteCalendarPopup({
+          event: eventToDelete,
+          sport: sport,
+        });
+      }
+    }
+
     const updatedSportEvents = events.filter((e) => e.id !== eventId);
     const updated = { ...eventsBySport, [sportId]: updatedSportEvents };
     onUpdateEvents(updated);
@@ -434,6 +452,11 @@ function SportPage({ sportId, eventsBySport, onBack, onUpdateEvents, userName })
       window.alert('Enter your name in the box at the top first.');
       return;
     }
+
+    // Find the event to check if it was confirmed
+    const eventToLeave = events.find((e) => e.id === eventId);
+    const wasConfirmed = eventToLeave && 
+      (eventToLeave.participants?.length || 0) >= (eventToLeave.minPlayers || 1);
 
     const updatedSportEvents = events.map((e) => {
       if (e.id !== eventId) return e;
@@ -448,6 +471,14 @@ function SportPage({ sportId, eventsBySport, onBack, onUpdateEvents, userName })
         participants: nextParticipants,
       };
     });
+
+    // Show popup if user was leaving a confirmed event
+    if (wasConfirmed && eventToLeave && onShowDeleteCalendarPopup) {
+      onShowDeleteCalendarPopup({
+        event: eventToLeave,
+        sport: sport,
+      });
+    }
 
     const updated = { ...eventsBySport, [sportId]: updatedSportEvents };
     onUpdateEvents(updated);
@@ -599,6 +630,57 @@ function SportPage({ sportId, eventsBySport, onBack, onUpdateEvents, userName })
         />
       )}
     </>
+  );
+}
+
+// Confirmation popup component
+function ConfirmationPopup({ event, sport, onClose, onAddToCalendar }) {
+  if (!event || !sport) return null;
+
+  return (
+    <div className="confirmation-popup-backdrop" onClick={onClose}>
+      <div className="confirmation-popup" onClick={(e) => e.stopPropagation()}>
+        <button className="confirmation-popup-close" onClick={onClose}>
+          ✕
+        </button>
+        <div className="confirmation-popup-content">
+          <div className="confirmation-popup-text">Schedule confirmed</div>
+          <button 
+            className="confirmation-popup-button"
+            onClick={onAddToCalendar}
+          >
+            Add to Google Calendar
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Delete calendar notification popup component
+function DeleteCalendarPopup({ event, sport, onClose }) {
+  if (!event || !sport) return null;
+
+  const eventTime = event.timeLabel || (event.timeRaw ? new Date(event.timeRaw).toLocaleString() : 'Unknown time');
+
+  return (
+    <div className="delete-calendar-popup-backdrop" onClick={onClose}>
+      <div className="delete-calendar-popup" onClick={(e) => e.stopPropagation()}>
+        <button className="delete-calendar-popup-close" onClick={onClose}>
+          ✕
+        </button>
+        <div className="delete-calendar-popup-content">
+          <div className="delete-calendar-popup-text">
+            Please delete this event from your Google Calendar
+          </div>
+          <div className="delete-calendar-popup-details">
+            <div>{sport.name} - {event.hostName}</div>
+            <div>{eventTime}</div>
+            <div>{event.location}</div>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -908,10 +990,147 @@ function App() {
     };
   }, []);
 
-  // Check for newly confirmed events when eventsBySport changes (e.g., from other users)
-  // Use a ref to track if we've already checked this update
+  // Track which events need to show confirmation popup
+  const [confirmationPopup, setConfirmationPopup] = useState(null);
+  // Track which events need to show delete calendar popup
+  const [deleteCalendarPopup, setDeleteCalendarPopup] = useState(null);
   const prevEventsRef = React.useRef(null);
-  
+
+  // Detect when events become confirmed
+  useEffect(() => {
+    if (isLoading || !userName || !prevEventsRef.current) {
+      prevEventsRef.current = eventsBySport;
+      return;
+    }
+
+    const prevEvents = prevEventsRef.current;
+    const currentEvents = eventsBySport;
+
+    // Check all sports for newly confirmed events
+    Object.keys(currentEvents).forEach((sportId) => {
+      const sport = SPORTS.find((s) => s.id === sportId);
+      if (!sport) return;
+
+      const prevSportEvents = prevEvents[sportId] || [];
+      const currentSportEvents = currentEvents[sportId] || [];
+
+      currentSportEvents.forEach((currentEvent) => {
+        if (!currentEvent || !currentEvent.timeRaw) return;
+
+        const prevEvent = prevSportEvents.find((e) => e.id === currentEvent.id);
+        const wasConfirmed = prevEvent
+          ? (prevEvent.participants?.length || 0) >= (prevEvent.minPlayers || 1)
+          : false;
+        const isNowConfirmed =
+          (currentEvent.participants?.length || 0) >= (currentEvent.minPlayers || 1);
+
+        // If event just became confirmed, show popup for involved users
+        if (!wasConfirmed && isNowConfirmed) {
+          const userLower = (userName || '').trim().toLowerCase();
+          const hostNameLower = (currentEvent.hostName || '').trim().toLowerCase();
+          const isHost = userLower === hostNameLower;
+          const isParticipant = (currentEvent.participants || []).some(
+            (p) => (p || '').trim().toLowerCase() === userLower
+          );
+
+          // Show popup if user is host or participant
+          if (isHost || isParticipant) {
+            setConfirmationPopup({
+              event: currentEvent,
+              sport: sport,
+            });
+          }
+        }
+        
+        // If event was confirmed but is now below minimum, show delete popup
+        if (wasConfirmed && !isNowConfirmed) {
+          const userLower = (userName || '').trim().toLowerCase();
+          const hostNameLower = (currentEvent.hostName || '').trim().toLowerCase();
+          const isHost = userLower === hostNameLower;
+          // Check if user was a participant when event was confirmed (use prevEvent)
+          const wasParticipant = (prevEvent?.participants || []).some(
+            (p) => (p || '').trim().toLowerCase() === userLower
+          );
+
+          // Show popup if user is host or was a participant when event was confirmed
+          if (isHost || wasParticipant) {
+            setDeleteCalendarPopup({
+              event: currentEvent,
+              sport: sport,
+            });
+          }
+        }
+      });
+    });
+
+    prevEventsRef.current = eventsBySport;
+  }, [eventsBySport, isLoading, userName]);
+
+  const handleCloseConfirmationPopup = () => {
+    setConfirmationPopup(null);
+  };
+
+  const handleShowDeleteCalendarPopup = (popupData) => {
+    setDeleteCalendarPopup(popupData);
+  };
+
+  const handleCloseDeleteCalendarPopup = () => {
+    setDeleteCalendarPopup(null);
+  };
+
+  const handleAddToCalendar = () => {
+    if (!confirmationPopup || !confirmationPopup.event) return;
+    
+    const event = confirmationPopup.event;
+    const sport = confirmationPopup.sport;
+    
+    // Parse the event date
+    const eventDate = new Date(event.timeRaw);
+    if (isNaN(eventDate.getTime())) {
+      console.error('Invalid event date');
+      setConfirmationPopup(null);
+      return;
+    }
+    
+    // Calculate end time (30 minutes after start)
+    const endDate = new Date(eventDate);
+    endDate.setMinutes(endDate.getMinutes() + 30);
+    
+    // Format dates for Google Calendar (YYYYMMDDTHHmmss in local time)
+    // Google Calendar will interpret these as the user's local timezone
+    const formatGoogleDate = (date) => {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      const hours = String(date.getHours()).padStart(2, '0');
+      const minutes = String(date.getMinutes()).padStart(2, '0');
+      const seconds = String(date.getSeconds()).padStart(2, '0');
+      return `${year}${month}${day}T${hours}${minutes}${seconds}`;
+    };
+    
+    const startDateStr = formatGoogleDate(eventDate);
+    const endDateStr = formatGoogleDate(endDate);
+    
+    // Build event details
+    const eventTitle = `${sport.name} - ${event.hostName}`;
+    const participantsList = event.participants && event.participants.length > 0
+      ? `\nParticipants: ${event.participants.join(', ')}`
+      : '';
+    const eventDescription = `Pomfret Sports Connect - ${sport.name} game\nHost: ${event.hostName}\nLocation: ${event.location}${participantsList}`;
+    
+    // Build Google Calendar URL
+    const calendarUrl = new URL('https://calendar.google.com/calendar/render');
+    calendarUrl.searchParams.set('action', 'TEMPLATE');
+    calendarUrl.searchParams.set('text', eventTitle);
+    calendarUrl.searchParams.set('dates', `${startDateStr}/${endDateStr}`);
+    calendarUrl.searchParams.set('details', eventDescription);
+    calendarUrl.searchParams.set('location', event.location || '');
+    
+    // Open Google Calendar in a new tab
+    window.open(calendarUrl.toString(), '_blank');
+    
+    setConfirmationPopup(null);
+  };
 
   useEffect(() => {
     if (isLoading) return;
@@ -947,12 +1166,28 @@ function App() {
           onBack={() => setSelectedSportId(null)}
           onUpdateEvents={handleUpdateEvents}
           userName={userName}
+          onShowDeleteCalendarPopup={handleShowDeleteCalendarPopup}
         />
       ) : (
         <Home
           onSelectSport={setSelectedSportId}
           userName={userName}
           eventsBySport={eventsBySport}
+        />
+      )}
+      {confirmationPopup && (
+        <ConfirmationPopup
+          event={confirmationPopup.event}
+          sport={confirmationPopup.sport}
+          onClose={handleCloseConfirmationPopup}
+          onAddToCalendar={handleAddToCalendar}
+        />
+      )}
+      {deleteCalendarPopup && (
+        <DeleteCalendarPopup
+          event={deleteCalendarPopup.event}
+          sport={deleteCalendarPopup.sport}
+          onClose={handleCloseDeleteCalendarPopup}
         />
       )}
     </AppShell>

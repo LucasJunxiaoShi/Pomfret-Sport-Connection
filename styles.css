@@ -1114,3 +1114,192 @@ body {
   color: #9ca3af;
   margin-top: 0.25rem;
 }
+
+/* Confirmation popup */
+.confirmation-popup-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: fadeIn 0.2s ease-out;
+}
+
+.confirmation-popup {
+  background: linear-gradient(
+    to bottom,
+    rgba(31, 41, 55, 0.95),
+    rgba(17, 24, 39, 0.95)
+  );
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-lg);
+  padding: 2rem;
+  max-width: 400px;
+  width: 90%;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5),
+    0 10px 10px -5px rgba(0, 0, 0, 0.2);
+  animation: slideUp 0.3s ease-out;
+  position: relative;
+}
+
+.confirmation-popup-close {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  border: none;
+  border-radius: 999px;
+  padding: 0.3rem 0.55rem;
+  background: rgba(15, 23, 42, 0.95);
+  color: #e5e7eb;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: all 0.2s ease;
+  line-height: 1;
+}
+
+.confirmation-popup-close:hover {
+  background: rgba(31, 41, 55, 0.95);
+  color: #f97373;
+}
+
+.confirmation-popup-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.confirmation-popup-text {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--pomfret-white);
+  text-align: center;
+}
+
+.confirmation-popup-button {
+  background: var(--pomfret-cardinal);
+  color: var(--pomfret-white);
+  border: none;
+  border-radius: 8px;
+  padding: 0.75rem 1.5rem;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: inherit;
+}
+
+.confirmation-popup-button:hover {
+  background: var(--pomfret-cardinal-dark);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(200, 16, 46, 0.4);
+}
+
+.confirmation-popup-button:active {
+  transform: translateY(0);
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Delete calendar popup */
+.delete-calendar-popup-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: fadeIn 0.2s ease-out;
+}
+
+.delete-calendar-popup {
+  background: linear-gradient(
+    to bottom,
+    rgba(31, 41, 55, 0.95),
+    rgba(17, 24, 39, 0.95)
+  );
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-lg);
+  padding: 2rem;
+  max-width: 450px;
+  width: 90%;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5),
+    0 10px 10px -5px rgba(0, 0, 0, 0.2);
+  animation: slideUp 0.3s ease-out;
+  position: relative;
+}
+
+.delete-calendar-popup-close {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  border: none;
+  border-radius: 999px;
+  padding: 0.3rem 0.55rem;
+  background: rgba(15, 23, 42, 0.95);
+  color: #e5e7eb;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: all 0.2s ease;
+  line-height: 1;
+}
+
+.delete-calendar-popup-close:hover {
+  background: rgba(31, 41, 55, 0.95);
+  color: #f97373;
+}
+
+.delete-calendar-popup-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.delete-calendar-popup-text {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--pomfret-white);
+  text-align: center;
+  margin-bottom: 0.5rem;
+}
+
+.delete-calendar-popup-details {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  color: #d1d5db;
+  text-align: center;
+  padding: 1rem;
+  background: rgba(15, 23, 42, 0.5);
+  border-radius: 8px;
+}
