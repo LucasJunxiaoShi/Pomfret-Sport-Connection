@@ -53,6 +53,11 @@ function findSportById(sportId, customSports) {
   return allSports.find((s) => s.id === sportId);
 }
 
+// Helper function to check if a sport is a custom sport (not the "Custom" entry itself)
+function isCustomSport(sportId) {
+  return sportId && sportId.startsWith('custom-') && sportId !== 'custom';
+}
+
 // Firebase helpers
 // Requires firebase to be initialized globally in index.html
 // with firebase-app-compat and firebase-firestore-compat scripts.
@@ -406,11 +411,12 @@ function SportCard({ sport, onClick }) {
   );
 }
 
-function SportPage({ sportId, eventsBySport, onBack, onUpdateEvents, userName, onShowDeleteCalendarPopup, customSports }) {
+function SportPage({ sportId, eventsBySport, onBack, onUpdateEvents, userName, onShowDeleteCalendarPopup, customSports, onDeleteCustomSport }) {
   const sport = findSportById(sportId, customSports);
   const [showModal, setShowModal] = useState(false);
   const [currentUserName, setCurrentUserName] = useState(userName || '');
   const events = eventsBySport[sportId] || [];
+  const isCustom = isCustomSport(sportId);
 
   if (!sport) {
     return (
@@ -555,10 +561,23 @@ function SportPage({ sportId, eventsBySport, onBack, onUpdateEvents, userName, o
             <span>/</span>
             <span className="current">{sport.name}</span>
           </div>
-          <h1 className="page-title">{sport.name} sessions</h1>
-          <p className="page-subtitle">
-            Create a new game or join an existing session with Pomfret classmates.
-          </p>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem' }}>
+            <div>
+              <h1 className="page-title">{sport.name} sessions</h1>
+              <p className="page-subtitle">
+                Create a new game or join an existing session with Pomfret classmates.
+              </p>
+            </div>
+            {isCustom && onDeleteCustomSport && (
+              <button
+                className="text-button"
+                style={{ color: '#ef4444', marginTop: '0.5rem' }}
+                onClick={() => onDeleteCustomSport(sportId)}
+              >
+                Delete sport
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -1314,6 +1333,28 @@ function App() {
     }
   };
 
+  const handleDeleteCustomSport = (sportId) => {
+    if (!isCustomSport(sportId)) return;
+    
+    // Confirm deletion
+    if (!window.confirm(`Are you sure you want to delete "${findSportById(sportId, customSports)?.name || 'this sport'}"? This will also delete all events for this sport.`)) {
+      return;
+    }
+
+    // Remove the custom sport
+    const updatedCustomSports = { ...customSports };
+    delete updatedCustomSports[sportId];
+    setCustomSports(updatedCustomSports);
+
+    // Remove all events for this sport
+    const updatedEvents = { ...eventsBySport };
+    delete updatedEvents[sportId];
+    setEventsBySport(updatedEvents);
+
+    // Navigate back to home
+    setSelectedSportId(null);
+  };
+
   useEffect(() => {
     const interval = setInterval(() => {
       setEventsBySport((prev) => {
@@ -1345,6 +1386,7 @@ function App() {
           onUpdateEvents={handleUpdateEvents}
           userName={userName}
           onShowDeleteCalendarPopup={handleShowDeleteCalendarPopup}
+          onDeleteCustomSport={handleDeleteCustomSport}
         />
       ) : (
         <Home
