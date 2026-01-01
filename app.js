@@ -34,7 +34,7 @@ const SPORTS = [
   {
     id: 'custom',
     name: 'Custom',
-    tagline: 'Create your own sport.',
+    tagline: 'Got some new ideas? Add it here!',
     locationHint: '',
   },
 ];
