@@ -31,7 +31,27 @@ const SPORTS = [
     tagline: 'Spinning serves, epic rallies.',
     locationHint: 'OSU Ping Pong table',
   },
+  {
+    id: 'custom',
+    name: 'Custom',
+    tagline: 'Create your own sport.',
+    locationHint: '',
+  },
 ];
+
+// Helper function to get all sports (regular + custom)
+function getAllSports(customSports) {
+  const customSportsArray = customSports && typeof customSports === 'object'
+    ? Object.values(customSports)
+    : [];
+  return [...SPORTS, ...customSportsArray];
+}
+
+// Helper function to find a sport by ID
+function findSportById(sportId, customSports) {
+  const allSports = getAllSports(customSports);
+  return allSports.find((s) => s.id === sportId);
+}
 
 // Firebase helpers
 // Requires firebase to be initialized globally in index.html
@@ -87,13 +107,29 @@ function cleanExpiredEvents(eventsBySport) {
   }
 }
 
-async function saveEventsToFirebase(eventsBySport) {
+async function saveEventsToFirebase(eventsBySport, customSports) {
   try {
     const db = firebase.firestore();
     const docRef = db.collection('appState').doc('events');
-    await docRef.set({ eventsBySport });
+    await docRef.set({ eventsBySport, customSports: customSports || {} });
   } catch (e) {
     console.error('Failed to save events to Firebase', e);
+  }
+}
+
+async function loadCustomSportsFromFirebase() {
+  try {
+    const db = firebase.firestore();
+    const docRef = db.collection('appState').doc('events');
+    const snap = await docRef.get();
+    if (!snap.exists) return {};
+    const data = snap.data();
+    return typeof data.customSports === 'object' && data.customSports !== null
+      ? data.customSports
+      : {};
+  } catch (e) {
+    console.error('Failed to load custom sports from Firebase', e);
+    return {};
   }
 }
 //Google Sign-in errors display
@@ -203,7 +239,7 @@ function AppShell({ children, userName, onSignOut }) {
   );
 }
 
-function Home({ onSelectSport, eventsBySport, userName }) {
+function Home({ onSelectSport, eventsBySport, userName, customSports }) {
   const scheduleItems = React.useMemo(() => {
     const items = [];
     if (!eventsBySport || typeof eventsBySport !== 'object') return items;
@@ -211,7 +247,7 @@ function Home({ onSelectSport, eventsBySport, userName }) {
     const currentName = (userName || '').trim().toLowerCase();
 
     Object.keys(eventsBySport).forEach((sportId) => {
-      const sport = SPORTS.find((s) => s.id === sportId);
+      const sport = findSportById(sportId, customSports);
       const sportName = sport ? sport.name : sportId;
       const events = Array.isArray(eventsBySport[sportId])
         ? eventsBySport[sportId]
@@ -257,7 +293,7 @@ function Home({ onSelectSport, eventsBySport, userName }) {
 
     items.sort((a, b) => a.time - b.time);
     return items;
-  }, [eventsBySport]);
+  }, [eventsBySport, customSports, userName]);
 
   return (
     <>
@@ -341,7 +377,7 @@ function Home({ onSelectSport, eventsBySport, userName }) {
       </div>
 
       <section className="sport-grid">
-        {SPORTS.map((sport) => (
+        {getAllSports(customSports).map((sport) => (
           <SportCard
             key={sport.id}
             sport={sport}
@@ -370,11 +406,29 @@ function SportCard({ sport, onClick }) {
   );
 }
 
-function SportPage({ sportId, eventsBySport, onBack, onUpdateEvents, userName, onShowDeleteCalendarPopup }) {
-  const sport = SPORTS.find((s) => s.id === sportId);
+function SportPage({ sportId, eventsBySport, onBack, onUpdateEvents, userName, onShowDeleteCalendarPopup, customSports }) {
+  const sport = findSportById(sportId, customSports);
   const [showModal, setShowModal] = useState(false);
   const [currentUserName, setCurrentUserName] = useState(userName || '');
   const events = eventsBySport[sportId] || [];
+
+  if (!sport) {
+    return (
+      <>
+        <div className="top-bar">
+          <div>
+            <div className="breadcrumb">
+              <button className="back-button" onClick={onBack}>
+                <span>←</span>
+                <span>All sports</span>
+              </button>
+            </div>
+            <h1 className="page-title">Sport not found</h1>
+          </div>
+        </div>
+      </>
+    );
+  }
 
   const handleCreateEvent = (newEvent) => {
     const updated = {
@@ -543,7 +597,7 @@ function SportPage({ sportId, eventsBySport, onBack, onUpdateEvents, userName, o
               </div>
             </div>
             <div className="event-meta-row">
-              <span className="meta-pill">Default location: {sport.locationHint}</span>
+              <span className="meta-pill">Default location: {sport.locationHint || 'Not specified'}</span>
               <span className="meta-pill">Saved in Pomfret Sports Connect (no login needed)</span>
             </div>
           </div>
@@ -758,6 +812,92 @@ function EventCard({ event, onJoin, onCancel, onDelete, canDelete, isHost }) {
   );
 }
 
+function CreateCustomSportModal({ onClose, onSave }) {
+  const [name, setName] = useState('');
+  const [tagline, setTagline] = useState('');
+  const [locationHint, setLocationHint] = useState('');
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    const trimmedName = (name || '').trim();
+    if (!trimmedName) {
+      return;
+    }
+
+    // Generate a unique ID for the custom sport
+    const sportId = `custom-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const customSport = {
+      id: sportId,
+      name: trimmedName,
+      tagline: (tagline || '').trim() || 'Create your own game.',
+      locationHint: (locationHint || '').trim() || '',
+    };
+
+    onSave(customSport);
+    onClose();
+  };
+
+  return (
+    <div className="modal-backdrop">
+      <div className="modal-panel">
+        <div className="modal-header">
+          <div>
+            <div className="modal-title">Create Custom Sport</div>
+            <div className="modal-subtitle">
+              Add a new sport that you want to play. Other students can see and join events for this sport.
+            </div>
+          </div>
+          <button className="modal-close" onClick={onClose}>
+            ✕
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="form-grid">
+          <div className="form-field">
+            <label className="form-label">Sport name *</label>
+            <input
+              className="form-input"
+              placeholder="e.g. Tennis, Volleyball, Badminton"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              required
+            />
+          </div>
+
+          <div className="form-field">
+            <label className="form-label">Tagline</label>
+            <input
+              className="form-input"
+              placeholder="A short description or catchphrase"
+              value={tagline}
+              onChange={(e) => setTagline(e.target.value)}
+            />
+          </div>
+
+          <div className="form-field">
+            <label className="form-label">Location hint</label>
+            <input
+              className="form-input"
+              placeholder="e.g. Tennis courts, Gymnasium, etc."
+              value={locationHint}
+              onChange={(e) => setLocationHint(e.target.value)}
+            />
+          </div>
+
+          <div className="form-footer">
+            <button type="button" className="text-button" onClick={onClose}>
+              Cancel
+            </button>
+            <button type="submit" className="primary-button">
+              Create sport
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 function CreateEventModal({ sport, onClose, onCreate, initialHostName }) {
   const [hostName, setHostName] = useState(initialHostName || '');
   const [time, setTime] = useState('');
@@ -941,6 +1081,8 @@ function App() {
   const [selectedSportId, setSelectedSportId] = useState(null);
   const [eventsBySport, setEventsBySport] = useState({});
   const [isLoading, setIsLoading] = useState(true);
+  const [customSports, setCustomSports] = useState({});
+  const [showCreateCustomSportModal, setShowCreateCustomSportModal] = useState(false);
 
   const handleNameSet = (name) => {
     setUserName(name);
@@ -967,15 +1109,21 @@ function App() {
       (snap) => {
         if (!snap.exists) {
           setEventsBySport({});
+          setCustomSports({});
         } else {
           const data = snap.data();
           const incoming =
             typeof data.eventsBySport === 'object' && data.eventsBySport !== null
               ? data.eventsBySport
               : {};
+          const incomingCustomSports =
+            typeof data.customSports === 'object' && data.customSports !== null
+              ? data.customSports
+              : {};
 
           const { eventsBySport: cleaned } = cleanExpiredEvents(incoming);
           setEventsBySport(cleaned || {});
+          setCustomSports(incomingCustomSports);
         }
         setIsLoading(false);
       },
@@ -1008,7 +1156,7 @@ function App() {
 
     // Check all sports for newly confirmed events
     Object.keys(currentEvents).forEach((sportId) => {
-      const sport = SPORTS.find((s) => s.id === sportId);
+      const sport = findSportById(sportId, customSports);
       if (!sport) return;
 
       const prevSportEvents = prevEvents[sportId] || [];
@@ -1145,8 +1293,26 @@ function App() {
 
   useEffect(() => {
     if (isLoading) return;
-    saveEventsToFirebase(eventsBySport);
-  }, [eventsBySport, isLoading]);
+    saveEventsToFirebase(eventsBySport, customSports);
+  }, [eventsBySport, customSports, isLoading]);
+
+  const handleCreateCustomSport = (customSport) => {
+    const updated = {
+      ...customSports,
+      [customSport.id]: customSport,
+    };
+    setCustomSports(updated);
+    // Navigate to the newly created custom sport
+    setSelectedSportId(customSport.id);
+  };
+
+  const handleSelectSport = (sportId) => {
+    if (sportId === 'custom') {
+      setShowCreateCustomSportModal(true);
+    } else {
+      setSelectedSportId(sportId);
+    }
+  };
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -1174,6 +1340,7 @@ function App() {
         <SportPage
           sportId={selectedSportId}
           eventsBySport={eventsBySport}
+          customSports={customSports}
           onBack={() => setSelectedSportId(null)}
           onUpdateEvents={handleUpdateEvents}
           userName={userName}
@@ -1181,9 +1348,16 @@ function App() {
         />
       ) : (
         <Home
-          onSelectSport={setSelectedSportId}
+          onSelectSport={handleSelectSport}
           userName={userName}
           eventsBySport={eventsBySport}
+          customSports={customSports}
+        />
+      )}
+      {showCreateCustomSportModal && (
+        <CreateCustomSportModal
+          onClose={() => setShowCreateCustomSportModal(false)}
+          onSave={handleCreateCustomSport}
         />
       )}
       {confirmationPopup && (
